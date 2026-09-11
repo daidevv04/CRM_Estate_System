@@ -1,0 +1,9 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build and IDE files
+**/target/
+.idea/
+*.iml

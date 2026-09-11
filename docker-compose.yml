@@ -1,0 +1,39 @@
+services:
+  consul:
+    image: hashicorp/consul:1.21
+    command: agent -dev -client=0.0.0.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  user-service:
+    build: ./services/user-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      USER_DB_HOST: ${USER_DB_HOST}
+      USER_DB_PORT: ${USER_DB_PORT:-5432}
+      USER_DB_NAME: ${USER_DB_NAME:-postgres}
+      USER_DB_USERNAME: ${USER_DB_USERNAME}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
+      DUMMY_BCRYPT_HASH: ${DUMMY_BCRYPT_HASH:?DUMMY_BCRYPT_HASH not set}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      consul:
+        condition: service_healthy
