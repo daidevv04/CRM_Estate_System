@@ -26,6 +26,10 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
  * Quyen truy cap thua huong tu khach hang: moi thao tac deu goi
  * CustomerService.requireAccess truoc, nen SALES chi thao tac duoc tren nhat ky
  * cua khach minh phu trach.
+ *
+ * LUU Y: chua co tich hop SMTP/JavaMailSender nao trong he thong. Ban ghi o day
+ * chi la lich su do nguoi dung khai bao; status SENT KHONG co nghia email da
+ * thuc su duoc gui. Xem review_full_system_v2.md muc N5.
  */
 @Service
 public class EmailCareService {
