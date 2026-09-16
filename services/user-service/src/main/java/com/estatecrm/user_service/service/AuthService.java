@@ -48,6 +48,7 @@ public class AuthService {
     private final Duration accessTokenTtl;
     private final Duration refreshTokenTtl;
     private final int maxLoginAttempts;
+    private final int maxLoginAttemptsIp;
 
     public AuthService(
             UserRepository userRepository,
@@ -59,7 +60,8 @@ public class AuthService {
             @Value("${app.auth.dummy-bcrypt-hash}") String dummyHash,
             @Value("${app.jwt.access-token-ttl}") Duration accessTokenTtl,
             @Value("${app.jwt.refresh-token-ttl}") Duration refreshTokenTtl,
-            @Value("${app.auth.max-login-attempts:5}") int maxLoginAttempts) {
+            @Value("${app.auth.max-login-attempts:5}") int maxLoginAttempts,
+            @Value("${app.auth.max-login-attempts-ip:50}") int maxLoginAttemptsIp) {
 
         String decodedDummy = new String(Base64.getDecoder().decode(dummyHash), StandardCharsets.UTF_8);
         if (!decodedDummy.startsWith("$2")) {
@@ -75,6 +77,7 @@ public class AuthService {
         this.accessTokenTtl = accessTokenTtl;
         this.refreshTokenTtl = refreshTokenTtl;
         this.maxLoginAttempts = maxLoginAttempts;
+        this.maxLoginAttemptsIp = maxLoginAttemptsIp;
     }
 
     @Transactional
@@ -83,7 +86,7 @@ public class AuthService {
         String accountKey = "account:" + identifier.toLowerCase(Locale.ROOT);
         String ipKey = "ip:" + clientIp;
         loginAttemptService.checkBlocked(accountKey, maxLoginAttempts);
-        loginAttemptService.checkBlocked(ipKey, maxLoginAttempts);
+        loginAttemptService.checkBlocked(ipKey, maxLoginAttemptsIp);
 
         User user = userRepository.findByUsername(identifier)
                 .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
@@ -100,7 +103,10 @@ public class AuthService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(FORBIDDEN, "User is not active");
         }
+        // Xoa ca bucket IP: neu khong, vai lan go nham cua nguoi khac trong cung
+        // 15 phut se khoa ca van phong du nguoi sau go dung mat khau.
         loginAttemptService.reset(accountKey);
+        loginAttemptService.reset(ipKey);
         return issueTokens(user, Instant.now(), LocalDateTime.now());
     }
 

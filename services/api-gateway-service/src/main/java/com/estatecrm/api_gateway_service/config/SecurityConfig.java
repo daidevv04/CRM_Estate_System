@@ -49,7 +49,9 @@ public class SecurityConfig {
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/actuator/health").permitAll()
+                        // /error phai public, neu khong moi loi chua xac thuc bi doi
+                        // thanh 401 rong thay vi 404/400 that su.
+                        .pathMatchers("/actuator/health", "/error").permitAll()
                         // Login va refresh phai vao duoc khi chua co token.
                         .pathMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
                         // CORS preflight khong mang Authorization header.

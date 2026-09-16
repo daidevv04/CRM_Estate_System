@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -50,7 +51,14 @@ public class SecurityConfig {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("role");
         authorities.setAuthorityPrefix("ROLE_");
-        return jwt -> new JwtAuthenticationToken(jwt, authorities.convert(jwt));
+        return jwt -> {
+            // Refresh token cung duoc ky bang JWT_SECRET nen chu ky hop le. Chi
+            // access token moi duoc dung lam bearer.
+            if (jwt.hasClaim("token_type")) {
+                throw new InvalidBearerTokenException("Refresh token is not a bearer token");
+            }
+            return new JwtAuthenticationToken(jwt, authorities.convert(jwt));
+        };
     }
 
     @Bean
@@ -61,7 +69,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health").permitAll()
+                        // /error phai public: neu khong, loi chua xac thuc bi doi thanh
+                        // 401 rong thay vi tra dung status/body.
+                        .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt
                         .jwtAuthenticationConverter(jwtAuthenticationConverter)))

@@ -6,10 +6,21 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Chuyen exception thanh response loi chuan ProblemDetail (RFC 9457). */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    /**
+     * Loi co status cu the (404 khong tim thay, 400 sai tham so...). Khong co
+     * handler nay thi Spring dispatch sang /error, va /error tung bi Security
+     * chan nen response thanh 401 rong, mat ca status lan message.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    ProblemDetail handleResponseStatus(ResponseStatusException exception) {
+        return ProblemDetail.forStatusAndDetail(exception.getStatusCode(), exception.getReason());
+    }
 
     /** Trung phone/email -> 409. */
     @ExceptionHandler(ConflictException.class)

@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -53,7 +54,15 @@ public class SecurityConfig {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("role");
         authorities.setAuthorityPrefix("ROLE_");
-        return jwt -> new JwtAuthenticationToken(jwt, authorities.convert(jwt));
+        return jwt -> {
+            // Refresh token cung duoc ky bang JWT_SECRET nen chu ky hop le. Chi
+            // access token moi duoc dung lam bearer; chan tai day de khong phai
+            // tach decoder (AuthService van decode raw cho /auth/refresh).
+            if (jwt.hasClaim("token_type")) {
+                throw new InvalidBearerTokenException("Refresh token is not a bearer token");
+            }
+            return new JwtAuthenticationToken(jwt, authorities.convert(jwt));
+        };
     }
 
     @Bean
@@ -64,7 +73,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/actuator/health").permitAll()
+                        // /error phai public: sendError() dispatch lai vao day, neu bi
+                        // chan thi moi loi chua xac thuc thanh 401 rong.
+                        .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/actuator/health", "/error")
+                        .permitAll()
                         .requestMatchers("/users/me/**").authenticated()
                         .requestMatchers("/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

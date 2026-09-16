@@ -39,12 +39,15 @@ public class AuthController {
         authService.logout(request);
     }
 
+    /**
+     * IP dung cho throttle. Gateway chay trong cung docker network nen
+     * getRemoteAddr() mac dinh la IP cua gateway, khong phai IP khach. Bat
+     * server.forward-headers-strategy=native de Tomcat tu doc X-Forwarded-For
+     * va tra ve IP khach, nhung chi khi request den tu proxy tin cay.
+     *
+     * Xem review_full_system_v2.md muc N1.
+     */
     private String clientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            // First entry is the client when the header is set by the trusted gateway.
-            return forwardedFor.split(",")[0].trim();
-        }
         return request.getRemoteAddr();
     }
 }
