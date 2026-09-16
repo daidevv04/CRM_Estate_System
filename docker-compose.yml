@@ -38,9 +38,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    # Khong publish ra host: chi gateway duoc goi vao. Xem review_full_system_v2.md
-    # muc N1 - mo port ra host cho phep gia mao X-Forwarded-For va brute-force
-    # khong gioi han. Can goi thang thi dung: docker compose exec user-service ...
     environment:
       SERVER_PORT: 8081
       SPRING_CLOUD_CONSUL_HOST: consul
@@ -69,8 +66,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    # Khong publish ra host, cung ly do nhu user-service. Trong cung network
-    # container van goi duoc nhau nen khong can expose.
     environment:
       SERVER_PORT: 8082
       SPRING_CLOUD_CONSUL_HOST: consul
@@ -83,6 +78,31 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      consul:
+        condition: service_healthy
+
+  crm-service:
+    build: ./services/crm-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8083
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      CRM_DB_HOST: ${CRM_DB_HOST}
+      CRM_DB_PORT: ${CRM_DB_PORT:-5432}
+      CRM_DB_NAME: ${CRM_DB_NAME:-postgres}
+      CRM_DB_USERNAME: ${CRM_DB_USERNAME}
+      CRM_DB_PASSWORD: ${CRM_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
