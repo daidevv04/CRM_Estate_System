@@ -9,11 +9,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -50,9 +50,16 @@ public class EmailTemplate {
     @Column(nullable = false, length = 20)
     private EmailTemplateStatus status = EmailTemplateStatus.ACTIVE;
 
+    /*
+     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
+     * set_updated_at khi update. Khong set o Java: Java dung mui gio JVM con
+     * DB dung mui gio cua phien lam viec, hai ben lech nhau.
+     */
+    @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -61,18 +68,4 @@ public class EmailTemplate {
 
     @Column(name = "updated_by")
     private UUID updatedBy;
-
-    /** Set created_at/updated_at khi them moi. */
-    @PrePersist
-    void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    /** Cap nhat updated_at moi lan sua. */
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

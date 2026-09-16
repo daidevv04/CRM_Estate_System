@@ -12,4 +12,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 USER spring
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8081
+ENV TZ=UTC
 ENTRYPOINT ["java", "-jar", "app.jar"]
