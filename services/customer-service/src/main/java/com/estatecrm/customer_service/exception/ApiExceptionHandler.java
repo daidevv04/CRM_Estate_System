@@ -1,6 +1,8 @@
 package com.estatecrm.customer_service.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,6 +22,25 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     ProblemDetail handleResponseStatus(ResponseStatusException exception) {
         return ProblemDetail.forStatusAndDetail(exception.getStatusCode(), exception.getReason());
+    }
+
+    /**
+     * Sort tro toi cot khong ton tai. Mac dinh Spring tra 500, nhung day la loi
+     * cua nguoi goi (tham so sai) nen phai la 400.
+     */
+    @ExceptionHandler(PropertyReferenceException.class)
+    ProblemDetail handleBadSort(PropertyReferenceException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "Unknown sort field: " + exception.getPropertyName());
+    }
+
+    /**
+     * Sort chua ky tu khong phai ten thuoc tinh (vi du "id;drop table"). Spring Data
+     * chan tu truoc khi vao SQL, chi con phai doi 500 thanh 400.
+     */
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    ProblemDetail handleInvalidSort(InvalidDataAccessApiUsageException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid sort expression");
     }
 
     /** Trung phone/email -> 409. */
