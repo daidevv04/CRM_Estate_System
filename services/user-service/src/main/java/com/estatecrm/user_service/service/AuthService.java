@@ -43,9 +43,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final JwtDecoder jwtDecoder;
+    private final LoginAttemptService loginAttemptService;
     private final String dummyHash;
     private final Duration accessTokenTtl;
     private final Duration refreshTokenTtl;
+    private final int maxLoginAttempts;
 
     public AuthService(
             UserRepository userRepository,
@@ -53,9 +55,11 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder,
             JwtDecoder jwtDecoder,
+            LoginAttemptService loginAttemptService,
             @Value("${app.auth.dummy-bcrypt-hash}") String dummyHash,
             @Value("${app.jwt.access-token-ttl}") Duration accessTokenTtl,
-            @Value("${app.jwt.refresh-token-ttl}") Duration refreshTokenTtl) {
+            @Value("${app.jwt.refresh-token-ttl}") Duration refreshTokenTtl,
+            @Value("${app.auth.max-login-attempts:5}") int maxLoginAttempts) {
 
         String decodedDummy = new String(Base64.getDecoder().decode(dummyHash), StandardCharsets.UTF_8);
         if (!decodedDummy.startsWith("$2")) {
@@ -66,28 +70,37 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
         this.jwtDecoder = jwtDecoder;
+        this.loginAttemptService = loginAttemptService;
         this.dummyHash = decodedDummy;
         this.accessTokenTtl = accessTokenTtl;
         this.refreshTokenTtl = refreshTokenTtl;
+        this.maxLoginAttempts = maxLoginAttempts;
     }
 
     @Transactional
-    public TokenResponse login(LoginRequest request) {
+    public TokenResponse login(LoginRequest request, String clientIp) {
         String identifier = request.usernameOrEmail().trim();
+        String accountKey = "account:" + identifier.toLowerCase(Locale.ROOT);
+        String ipKey = "ip:" + clientIp;
+        loginAttemptService.checkBlocked(accountKey, maxLoginAttempts);
+        loginAttemptService.checkBlocked(ipKey, maxLoginAttempts);
+
         User user = userRepository.findByUsername(identifier)
                 .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
                 .orElse(null);
 
-        if (user == null) {
-            passwordEncoder.matches(request.password(), dummyHash);
-            throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
-        }
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+            if (user == null) {
+                passwordEncoder.matches(request.password(), dummyHash);
+            }
+            loginAttemptService.recordFailure(accountKey);
+            loginAttemptService.recordFailure(ipKey);
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(FORBIDDEN, "User is not active");
         }
+        loginAttemptService.reset(accountKey);
         return issueTokens(user, Instant.now(), LocalDateTime.now());
     }
 
@@ -108,17 +121,18 @@ public class AuthService {
         Instant now = Instant.now();
         LocalDateTime databaseNow = LocalDateTime.now();
 
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid refresh token"));
+
+        // Atomic single-use claim. Failure means the token raced, was already
+        // rotated, or expired. Only an already-revoked token signals reuse.
         if (refreshTokenRepository.tryRevoke(tokenHash, databaseNow) == 0) {
-            if (refreshTokenRepository.findByTokenHash(tokenHash).isPresent()) {
-                refreshTokenRepository.findByTokenHash(tokenHash)
-                        .ifPresent(token -> refreshTokenRepository
-                                .revokeAllForUser(token.getUser().getId(), databaseNow));
+            if (storedToken.getRevokedAt() != null) {
+                refreshTokenRepository.revokeAllForUser(storedToken.getUser().getId(), databaseNow);
             }
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid refresh token");
         }
 
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid refresh token"));
         User user = storedToken.getUser();
         if (!user.getId().toString().equals(jwt.getSubject()) || user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(FORBIDDEN, "User is not active");

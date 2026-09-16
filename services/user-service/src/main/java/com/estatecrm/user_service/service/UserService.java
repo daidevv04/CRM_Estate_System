@@ -75,16 +75,22 @@ public class UserService {
     @Transactional
     public UserResponse updateProfile(UUID userId, UpdateUserProfileRequest request, UUID adminId) {
         User user = find(userId);
-        String email = normalizeEmail(request.email());
-        if (email != null && !email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
-            throw new ConflictException("Email already exists");
+        if (request.email() != null) {
+            String email = normalizeEmail(request.email());
+            if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
+                throw new ConflictException("Email already exists");
+            }
+            user.setEmail(email);
         }
-        if (request.phone() != null && !request.phone().equals(user.getPhone()) && userRepository.existsByPhone(request.phone())) {
-            throw new ConflictException("Phone already exists");
+        if (request.phone() != null) {
+            if (!request.phone().equals(user.getPhone()) && userRepository.existsByPhone(request.phone())) {
+                throw new ConflictException("Phone already exists");
+            }
+            user.setPhone(request.phone());
         }
-        user.setEmail(email);
-        user.setFullName(request.fullName());
-        user.setPhone(request.phone());
+        if (request.fullName() != null) {
+            user.setFullName(request.fullName());
+        }
         user.setUpdatedBy(userRepository.getReferenceById(adminId));
         return UserResponse.from(userRepository.save(user));
     }
@@ -116,6 +122,9 @@ public class UserService {
         User user = find(userId);
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new ResponseStatusException(BAD_REQUEST, "Current password is incorrect");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new ResponseStatusException(BAD_REQUEST, "New password must differ from current password");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         user.setUpdatedBy(user);
