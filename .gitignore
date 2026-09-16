@@ -7,3 +7,5 @@
 **/target/
 .idea/
 *.iml
+# Local review scratch
+.scratch_review/
