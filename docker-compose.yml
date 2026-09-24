@@ -17,9 +17,9 @@ services:
     env_file:
       - .env
     ports:
-      - "8080:8080"
+      - "${GATEWAY_PORT:-8080}:${GATEWAY_PORT:-8080}"
     environment:
-      SERVER_PORT: 8080
+      SERVER_PORT: ${GATEWAY_PORT:-8080}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
@@ -30,7 +30,7 @@ services:
       GATEWAY_MAX_INITIAL_LINE_LENGTH: ${GATEWAY_MAX_INITIAL_LINE_LENGTH:-4KB}
       GATEWAY_MAX_HEADER_SIZE: ${GATEWAY_MAX_HEADER_SIZE:-16KB}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -52,13 +52,13 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8888
+      SERVER_PORT: ${CONFIG_SERVICE_PORT:-8888}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME not set}
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD not set}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -u \"$$CONFIG_SERVER_USERNAME:$$CONFIG_SERVER_PASSWORD\" http://localhost:8888/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS -u \"$$CONFIG_SERVER_USERNAME:$$CONFIG_SERVER_PASSWORD\" http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -73,7 +73,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8081
+      SERVER_PORT: ${USER_SERVICE_PORT:-8081}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       USER_DB_HOST: ${USER_DB_HOST}
@@ -86,9 +86,9 @@ services:
       MAX_LOGIN_ATTEMPTS: ${MAX_LOGIN_ATTEMPTS:-5}
       MAX_LOGIN_ATTEMPTS_IP: ${MAX_LOGIN_ATTEMPTS_IP:-50}
       # OTP gui qua mail-service (khong publish port ra host).
-      MAIL_SERVICE_URL: http://mail-service:8084
+      MAIL_SERVICE_URL: ${MAIL_SERVICE_URL:-http://mail-service:8084}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -103,7 +103,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8082
+      SERVER_PORT: ${CUSTOMER_SERVICE_PORT:-8082}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CUSTOMER_DB_HOST: ${CUSTOMER_DB_HOST}
@@ -113,9 +113,9 @@ services:
       CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
       # Email care gui that qua mail-service.
-      MAIL_SERVICE_URL: http://mail-service:8084
+      MAIL_SERVICE_URL: ${MAIL_SERVICE_URL:-http://mail-service:8084}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -130,7 +130,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8083
+      SERVER_PORT: ${CRM_SERVICE_PORT:-8083}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CRM_DB_HOST: ${CRM_DB_HOST}
@@ -140,7 +140,7 @@ services:
       CRM_DB_PASSWORD: ${CRM_DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -157,7 +157,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8084
+      SERVER_PORT: ${MAIL_SERVICE_PORT:-8084}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
@@ -169,7 +169,7 @@ services:
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
       MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
