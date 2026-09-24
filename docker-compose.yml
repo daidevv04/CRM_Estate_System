@@ -39,6 +39,34 @@ services:
       consul:
         condition: service_healthy
 
+  # Config tap trung cho 5 service. Khong publish port: chi trong docker network,
+  # va van bat basic auth vi response chua cau hinh moi truong.
+  # Service muon lay config: them dependency spring-cloud-starter-config roi dat
+  #   spring.config.import=optional:configserver:http://config-service:8888
+  #   spring.cloud.config.username=${CONFIG_SERVER_USERNAME}
+  #   spring.cloud.config.password=${CONFIG_SERVER_PASSWORD}
+  # va bo cac dong trung lap trong application.properties cua service do.
+  config-service:
+    build: ./services/config-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8888
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME not set}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD not set}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u \"$$CONFIG_SERVER_USERNAME:$$CONFIG_SERVER_PASSWORD\" http://localhost:8888/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      consul:
+        condition: service_healthy
+
   user-service:
     build: ./services/user-service
     restart: unless-stopped
