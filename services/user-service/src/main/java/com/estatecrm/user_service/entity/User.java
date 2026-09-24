@@ -64,6 +64,10 @@ public class User {
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
+    /** NULL khi email chua duoc xac thuc qua OTP purpose VERIFY_EMAIL. */
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     /*
      * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
      * set_updated_at khi update. Ca hai dung gio cua phien lam viec cua DB.

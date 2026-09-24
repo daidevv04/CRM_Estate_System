@@ -13,6 +13,9 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificationExecutor<Lead> {
 
+    /** Xoa product con bi lead tro toi thi chan truoc (FK khong cascade). */
+    boolean existsByProductId(UUID productId);
+
     /**
      * Loc dong cho GET /leads. Tham so null/rong = bo qua dieu kien do.
      * closeDate = han chot muon nhat, tra ve ca lead khong dat han.

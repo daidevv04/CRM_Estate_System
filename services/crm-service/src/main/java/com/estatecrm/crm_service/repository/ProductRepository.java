@@ -16,6 +16,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface ProductRepository
         extends JpaRepository<Product, UUID>, JpaSpecificationExecutor<Product> {
 
+    boolean existsByProjectId(UUID projectId);
+
     boolean existsByProjectIdAndCode(UUID projectId, String code);
 
     /**

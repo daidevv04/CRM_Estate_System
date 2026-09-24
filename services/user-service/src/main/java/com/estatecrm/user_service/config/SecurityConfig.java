@@ -75,7 +75,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // /error phai public: sendError() dispatch lai vao day, neu bi
                         // chan thi moi loi chua xac thuc thanh 401 rong.
-                        .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/actuator/health", "/error")
+                        // /auth/otp/send va /auth/2fa/verify phai public: nguoi dung
+                        // chua co token moi can chung.
+                        .requestMatchers(
+                                "/auth/login", "/auth/refresh", "/auth/logout",
+                                "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",
+                                "/actuator/health", "/error")
                         .permitAll()
                         .requestMatchers("/users/me/**").authenticated()
                         .requestMatchers("/users/**").hasRole("ADMIN")

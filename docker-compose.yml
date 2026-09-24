@@ -23,6 +23,12 @@ services:
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      GATEWAY_AUTH_RATE_LIMIT_MAX_REQUESTS: ${GATEWAY_AUTH_RATE_LIMIT_MAX_REQUESTS:-20}
+      GATEWAY_AUTH_RATE_LIMIT_WINDOW: ${GATEWAY_AUTH_RATE_LIMIT_WINDOW:-1m}
+      GATEWAY_MAX_REQUEST_BODY: ${GATEWAY_MAX_REQUEST_BODY:-1MB}
+      GATEWAY_MAX_INITIAL_LINE_LENGTH: ${GATEWAY_MAX_INITIAL_LINE_LENGTH:-4KB}
+      GATEWAY_MAX_HEADER_SIZE: ${GATEWAY_MAX_HEADER_SIZE:-16KB}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
@@ -51,6 +57,8 @@ services:
       DUMMY_BCRYPT_HASH: ${DUMMY_BCRYPT_HASH:?DUMMY_BCRYPT_HASH not set}
       MAX_LOGIN_ATTEMPTS: ${MAX_LOGIN_ATTEMPTS:-5}
       MAX_LOGIN_ATTEMPTS_IP: ${MAX_LOGIN_ATTEMPTS_IP:-50}
+      # OTP gui qua mail-service (khong publish port ra host).
+      MAIL_SERVICE_URL: http://mail-service:8084
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health || exit 1"]
       interval: 10s
@@ -76,6 +84,8 @@ services:
       CUSTOMER_DB_USERNAME: ${CUSTOMER_DB_USERNAME}
       CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
+      # Email care gui that qua mail-service.
+      MAIL_SERVICE_URL: http://mail-service:8084
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health || exit 1"]
       interval: 10s
@@ -103,6 +113,35 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      consul:
+        condition: service_healthy
+
+  # Khong publish port: chi user-service goi trong docker network, va phai co
+  # internal token (scope=internal) moi dung duoc.
+  mail-service:
+    build: ./services/mail-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8084
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST not set}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM not set}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6

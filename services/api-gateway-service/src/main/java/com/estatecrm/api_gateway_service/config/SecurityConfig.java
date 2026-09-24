@@ -52,8 +52,18 @@ public class SecurityConfig {
                         // /error phai public, neu khong moi loi chua xac thuc bi doi
                         // thanh 401 rong thay vi 404/400 that su.
                         .pathMatchers("/actuator/health", "/error").permitAll()
-                        // Login va refresh phai vao duoc khi chua co token.
-                        .pathMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh").permitAll()
+                        // Login, refresh va cac buoc xac thuc chua co token (OTP, 2FA)
+                        // phai vao duoc khi chua co token.
+                        .pathMatchers(HttpMethod.POST,
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                // Logout nhan refresh token trong request body; token nay bi chan lam
+                                // bearer token, nen phai public de user-service revoke duoc token.
+                                "/api/auth/logout",
+                                "/api/auth/otp/send",
+                                "/api/auth/otp/verify",
+                                "/api/auth/2fa/verify")
+                        .permitAll()
                         // CORS preflight khong mang Authorization header.
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated())

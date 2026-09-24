@@ -7,5 +7,14 @@
 **/target/
 .idea/
 *.iml
-# Local review scratch
+# Local review scratch and generated test evidence
 .scratch_review/
+*-test.log
+*-final.log
+live-*.body
+live-*.headers
+live-*.json
+lifecycle-*.body
+lifecycle-*.headers
+lifecycle-*.json
+cleanup-*.body

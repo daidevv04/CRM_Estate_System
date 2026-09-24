@@ -3,6 +3,7 @@ package com.estatecrm.user_service.dto.user;
 import com.estatecrm.user_service.entity.User;
 import com.estatecrm.user_service.enums.UserRole;
 import com.estatecrm.user_service.enums.UserStatus;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record UserResponse(
@@ -12,7 +13,8 @@ public record UserResponse(
         String fullName,
         String phone,
         UserRole role,
-        UserStatus status) {
+        UserStatus status,
+        LocalDateTime emailVerifiedAt) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -22,6 +24,7 @@ public record UserResponse(
                 user.getFullName(),
                 user.getPhone(),
                 user.getRole(),
-                user.getStatus());
+                user.getStatus(),
+                user.getEmailVerifiedAt());
     }
 }

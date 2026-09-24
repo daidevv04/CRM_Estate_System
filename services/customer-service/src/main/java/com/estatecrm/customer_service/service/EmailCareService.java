@@ -27,9 +27,8 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
  * CustomerService.requireAccess truoc, nen SALES chi thao tac duoc tren nhat ky
  * cua khach minh phu trach.
  *
- * LUU Y: chua co tich hop SMTP/JavaMailSender nao trong he thong. Ban ghi o day
- * chi la lich su do nguoi dung khai bao; status SENT KHONG co nghia email da
- * thuc su duoc gui. Xem review_full_system_v2.md muc N5.
+ * Email duoc gui that qua mail-service. Ban ghi chi duoc luu sau khi mail-service
+ * nhan gui thanh cong, nen status SENT luon co nghia la da gui that.
  */
 @Service
 public class EmailCareService {
@@ -38,16 +37,19 @@ public class EmailCareService {
     private final EmailTemplateRepository emailTemplateRepository;
     private final CustomerCareRepository customerCareRepository;
     private final CustomerService customerService;
+    private final MailClient mailClient;
 
     public EmailCareService(
             EmailCareRepository emailCareRepository,
             EmailTemplateRepository emailTemplateRepository,
             CustomerCareRepository customerCareRepository,
-            CustomerService customerService) {
+            CustomerService customerService,
+            MailClient mailClient) {
         this.emailCareRepository = emailCareRepository;
         this.emailTemplateRepository = emailTemplateRepository;
         this.customerCareRepository = customerCareRepository;
         this.customerService = customerService;
+        this.mailClient = mailClient;
     }
 
     /**
@@ -83,6 +85,8 @@ public class EmailCareService {
         careMail.setStatus(request.status() == null ? EmailCareStatus.SENT : request.status());
         // Chi email SENT moi co moc thoi gian gui; FAILED thi de trong.
         if (careMail.getStatus() == EmailCareStatus.SENT) {
+            // Gui truoc khi luu: mail loi thi khong de lai ban ghi SENT khong that.
+            mailClient.send(request.toEmail(), subject, body);
             careMail.setSentAt(LocalDateTime.now());
         }
         careMail.setCreatedBy(actorId);
@@ -120,6 +124,8 @@ public class EmailCareService {
                 careMail.setOpenedAt(LocalDateTime.now());
             }
             if (request.status() == EmailCareStatus.SENT && careMail.getSentAt() == null) {
+                // Chuyen tu FAILED/CLICKED sang SENT = gui lai, nen phai gui that.
+                mailClient.send(careMail.getToEmail(), careMail.getSubject(), careMail.getBody());
                 careMail.setSentAt(LocalDateTime.now());
             }
         }

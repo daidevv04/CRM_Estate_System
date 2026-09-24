@@ -4,12 +4,15 @@ import com.estatecrm.crm_service.entity.Deal;
 import com.estatecrm.crm_service.enums.ApprovalStatus;
 import com.estatecrm.crm_service.enums.DealStatus;
 import com.estatecrm.crm_service.enums.PaymentStatus;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface DealRepository extends JpaRepository<Deal, UUID>, JpaSpecificationExecutor<Deal> {
@@ -17,6 +20,10 @@ public interface DealRepository extends JpaRepository<Deal, UUID>, JpaSpecificat
     boolean existsByContractCode(String contractCode);
 
     boolean existsByLeadId(UUID leadId);
+
+    /** Serialize ghi payment tren cung mot deal de tong thu khong vuot contract_value. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Deal> findWithLockById(UUID dealId);
 
     /** Loc dong cho GET /deals. Tham so null/rong = bo qua dieu kien do. */
     static Specification<Deal> filter(

@@ -10,4 +10,7 @@ public interface ContactDetailRepository extends JpaRepository<ContactDetail, UU
     List<ContactDetail> findByDealId(UUID dealId);
 
     boolean existsByDealIdAndProductId(UUID dealId, UUID productId);
+
+    /** Xoa product con bi dong hop dong tro toi thi chan truoc (FK khong cascade). */
+    boolean existsByProductId(UUID productId);
 }

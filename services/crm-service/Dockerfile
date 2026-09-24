@@ -1,7 +1,7 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
-RUN mvn -q dependency:go-offline
+RUN mvn -q -Dmaven.wagon.http.retryHandler.count=10 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 dependency:go-offline
 COPY src ./src
 RUN mvn -q package -DskipTests
 

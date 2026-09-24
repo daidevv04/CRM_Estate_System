@@ -40,8 +40,13 @@ public class OtpVerification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "otp_code", nullable = false, length = 6)
+    /** SHA-256 hex cua OTP 6 chu so; database V2 khong luu plaintext OTP. */
+    @Column(name = "otp_code", nullable = false, length = 64)
     private String otpCode;
+
+    /** Dem lan nhap sai, huy OTP khi dat nguong de chong brute-force qua restart. */
+    @Column(nullable = false)
+    private int attempts;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

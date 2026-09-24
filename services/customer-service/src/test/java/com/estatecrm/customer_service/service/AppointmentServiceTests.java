@@ -27,8 +27,11 @@ class AppointmentServiceTests {
 
     private static final UUID ACTOR = UUID.randomUUID();
     private static final UUID CUSTOMER_ID = UUID.randomUUID();
-    private static final LocalDateTime START = LocalDateTime.of(2026, 9, 20, 9, 0);
-    private static final LocalDateTime END = LocalDateTime.of(2026, 9, 20, 10, 0);
+    // Ngay co dinh se het han: AppointmentService.requireFuture chan startTime qua khu.
+    // Lay moc tuong lai theo gio chay test de test khong tu chet theo thoi gian.
+    private static final LocalDateTime START =
+            LocalDateTime.now().plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0);
+    private static final LocalDateTime END = START.plusHours(1);
 
     @Mock
     private AppointmentRepository appointmentRepository;
