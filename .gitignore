@@ -7,6 +7,9 @@
 **/target/
 .idea/
 *.iml
+# Local docs (design notes, DB scripts). Kept on disk, not pushed.
+docs/
+
 # Local review scratch and generated test evidence
 .scratch_review/
 *-test.log
