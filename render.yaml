@@ -15,7 +15,7 @@
 #   - Debug: Render Dashboard -> service -> Logs; xem dong "render-jdk: dang tai JDK".
 #
 # Truoc khi Apply: dien cac bien sync: false. Sau khi Apply doi chieu ten service that
-# (URL = <ten>.onrender.com, trung ten thi Render them hau to) va sua 4 dong URL ben duoi.
+# (URL = <ten>.onrender.com, trung ten thi Render them hau to) va sua cac dong URL ben duoi neu ten co hau to.
 # DB van la Supabase (external), Render khong tao database nao.
 
 services:
@@ -34,13 +34,13 @@ services:
       - key: CONSUL_ENABLED
         value: "false"
       - key: CONFIG_SERVER_URL
-        value: https://crm-config-service.onrender.com
+        value: https://crm-config-service-9dj8.onrender.com
       - key: USER_SERVICE_URI
-        value: https://crm-user-service.onrender.com
+        value: https://crm-user-service-9dj8.onrender.com
       - key: CUSTOMER_SERVICE_URI
-        value: https://crm-customer-service.onrender.com
+        value: https://crm-customer-service-9dj8.onrender.com
       - key: CRM_SERVICE_URI
-        value: https://crm-crm-service.onrender.com
+        value: https://crm-crm-service-9dj8.onrender.com
       # Doi thanh domain frontend that. KHONG dung '*' (request mang Bearer token).
       - key: CORS_ALLOWED_ORIGINS
         value: http://localhost:5173
@@ -75,9 +75,9 @@ services:
       - key: CONSUL_ENABLED
         value: "false"
       - key: CONFIG_SERVER_URL
-        value: https://crm-config-service.onrender.com
+        value: https://crm-config-service-9dj8.onrender.com
       - key: MAIL_SERVICE_URL
-        value: https://crm-mail-service.onrender.com
+        value: https://crm-mail-service-9dj8.onrender.com
 
   - type: web
     name: crm-crm-service
@@ -92,7 +92,7 @@ services:
       - key: CONSUL_ENABLED
         value: "false"
       - key: CONFIG_SERVER_URL
-        value: https://crm-config-service.onrender.com
+        value: https://crm-config-service-9dj8.onrender.com
 
   - type: web
     name: crm-mail-service
@@ -107,7 +107,7 @@ services:
       - key: CONSUL_ENABLED
         value: "false"
       - key: CONFIG_SERVER_URL
-        value: https://crm-config-service.onrender.com
+        value: https://crm-config-service-9dj8.onrender.com
 
   - type: web
     name: crm-user-service
@@ -122,9 +122,9 @@ services:
       - key: CONSUL_ENABLED
         value: "false"
       - key: CONFIG_SERVER_URL
-        value: https://crm-config-service.onrender.com
+        value: https://crm-config-service-9dj8.onrender.com
       - key: MAIL_SERVICE_URL
-        value: https://crm-mail-service.onrender.com
+        value: https://crm-mail-service-9dj8.onrender.com
 
 envVarGroups:
   - name: crm-secrets
@@ -139,6 +139,9 @@ envVarGroups:
         generateValue: true
       - key: CONFIG_SERVER_PASSWORD
         generateValue: true
+      # config-service dung 2 bien nay lam basic auth cho /actuator va /<service>/<profile>.
+      - key: CONFIG_SERVER_USERNAME
+        value: config-admin
       # Render hoi gia tri khi Apply (secret that, khong luu trong git).
       - key: DUMMY_BCRYPT_HASH
         sync: false
