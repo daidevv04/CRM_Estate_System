@@ -20,6 +20,9 @@ services:
       - "${GATEWAY_PORT:-8080}:${GATEWAY_PORT:-8080}"
     environment:
       SERVER_PORT: ${GATEWAY_PORT:-8080}
+      # Gioi han heap cho tung JVM: 6 service tren mot may nho (VPS 2GB) van chay
+      # duoc. Doi gia tri nay trong .env khi co nhieu RAM hon.
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
@@ -53,6 +56,7 @@ services:
       - .env
     environment:
       SERVER_PORT: ${CONFIG_SERVICE_PORT:-8888}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME not set}
@@ -74,6 +78,7 @@ services:
       - .env
     environment:
       SERVER_PORT: ${USER_SERVICE_PORT:-8081}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       USER_DB_HOST: ${USER_DB_HOST}
@@ -104,6 +109,7 @@ services:
       - .env
     environment:
       SERVER_PORT: ${CUSTOMER_SERVICE_PORT:-8082}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CUSTOMER_DB_HOST: ${CUSTOMER_DB_HOST}
@@ -131,6 +137,7 @@ services:
       - .env
     environment:
       SERVER_PORT: ${CRM_SERVICE_PORT:-8083}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       CRM_DB_HOST: ${CRM_DB_HOST}
@@ -158,6 +165,7 @@ services:
       - .env
     environment:
       SERVER_PORT: ${MAIL_SERVICE_PORT:-8084}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx160m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k}
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET not set}
