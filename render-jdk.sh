@@ -6,8 +6,8 @@
 # lai tu buoc build sang buoc runtime, va runtime chi can JDK (Maven chi dung luc build)
 # -> giai nen JDK ngay trong thu muc repo chu khong vao $HOME.
 #
-# Goi tu buildCommand:   sh ../../tools/render-jdk.sh
-# Goi tu startCommand:   sh ../../tools/render-jdk.sh   (chi tai neu .jdk con thieu)
+# Goi tu buildCommand:   sh ../../render-jdk.sh
+# Goi tu startCommand:   sh ../../render-jdk.sh   (chi tai neu .jdk con thieu)
 #
 # Idempotent: da co .jdk/bin/java thi thoat ngay.
 set -eu

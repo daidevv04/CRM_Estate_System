@@ -10,9 +10,12 @@
 # Local docs (design notes, DB scripts). Kept on disk, not pushed.
 docs/
 logs/
-# JDK do tools/render-jdk.sh tai ve khi build tren Render (khong commit).
+# JDK do render-jdk.sh tai ve khi build tren Render (khong commit).
 .jdk/
 jdk.tgz
+# Script dev local (dev-up.ps1, test-api.ps1...) va thu muc tools: giu tren may, khong push.
+*.ps1
+tools/
 
 # Local review scratch and generated test evidence
 .scratch_review/

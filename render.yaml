@@ -3,7 +3,7 @@
 # Vi sao phai tu cai JDK: Render chi co native runtime cho Node/Python/Ruby/Go/Rust/Elixir,
 # KHONG co JVM. Nen moi service chay bang runtime 'node' (chi de co san shell + curl + tar)
 # va tu tai JDK 17 vao ./.jdk trong thu muc repo ngay o buoc build:
-#   tools/render-jdk.sh  ->  tai Adoptium Temurin 17 (~190MB), giai nen vao .jdk/
+#   render-jdk.sh  ->  tai Adoptium Temurin 17 (~190MB), giai nen vao .jdk/
 #   JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package   (Maven chi can luc build)
 #   ./.jdk/bin/java -jar app.jar                            (runtime chi can JDK)
 #
@@ -26,8 +26,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/api-gateway-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
@@ -53,8 +53,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/config-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
@@ -67,8 +67,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/customer-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
@@ -84,8 +84,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/crm-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
@@ -99,8 +99,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/mail-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
@@ -114,8 +114,8 @@ services:
     runtime: node
     plan: free
     rootDir: services/user-service
-    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
-    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    buildCommand: sh ../../render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
     healthCheckPath: /actuator/health
     envVars:
       - fromGroup: crm-secrets
