@@ -1,5 +1,0 @@
-target/
-.git/
-.idea/
-*.iml
-# config-repo/ PHAI duoc COPY vao image nen KHONG ignore.
