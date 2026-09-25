@@ -9,6 +9,10 @@
 *.iml
 # Local docs (design notes, DB scripts). Kept on disk, not pushed.
 docs/
+logs/
+# JDK do tools/render-jdk.sh tai ve khi build tren Render (khong commit).
+.jdk/
+jdk.tgz
 
 # Local review scratch and generated test evidence
 .scratch_review/

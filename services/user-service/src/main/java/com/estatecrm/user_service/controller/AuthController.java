@@ -107,7 +107,7 @@ public class AuthController {
     }
 
     /**
-     * IP dung cho throttle. Gateway chay trong cung docker network nen
+     * IP dung cho throttle. Gateway goi service qua mang noi bo nen
      * getRemoteAddr() mac dinh la IP cua gateway, khong phai IP khach. Bat
      * server.forward-headers-strategy=native de Tomcat tu doc X-Forwarded-For
      * va tra ve IP khach, nhung chi khi request den tu proxy tin cay.

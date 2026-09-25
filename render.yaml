@@ -1,0 +1,167 @@
+# render.yaml - Blueprint deploy 6 service len Render (free plan), KHONG dung Docker.
+#
+# Vi sao phai tu cai JDK: Render chi co native runtime cho Node/Python/Ruby/Go/Rust/Elixir,
+# KHONG co JVM. Nen moi service chay bang runtime 'node' (chi de co san shell + curl + tar)
+# va tu tai JDK 17 vao ./.jdk trong thu muc repo ngay o buoc build:
+#   tools/render-jdk.sh  ->  tai Adoptium Temurin 17 (~190MB), giai nen vao .jdk/
+#   JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package   (Maven chi can luc build)
+#   ./.jdk/bin/java -jar app.jar                            (runtime chi can JDK)
+#
+# RUI RO DA BIET (duong nay khong duoc Render ho tro chinh thuc):
+#   - Render chi giu noi dung NAM TRONG thu muc repo tu build sang runtime. Neu mot ngay
+#     nao do .jdk khong duoc giu lai, startCommand van chay render-jdk.sh nen service VAN
+#     len (chi cham hon ~1 phut o lan cold start dau). Muon chac chan thi quay lai Docker.
+#   - Moi lan deploy tai lai JDK 6 lan (~1.1GB) -> ton pipeline minutes (Hobby: 500 phut/thang).
+#   - Debug: Render Dashboard -> service -> Logs; xem dong "render-jdk: dang tai JDK".
+#
+# Truoc khi Apply: dien cac bien sync: false. Sau khi Apply doi chieu ten service that
+# (URL = <ten>.onrender.com, trung ten thi Render them hau to) va sua 4 dong URL ben duoi.
+# DB van la Supabase (external), Render khong tao database nao.
+
+services:
+  # Gateway: khong co Consul nen route phai tro thang URL public cua service
+  # (mac dinh trong application.properties la lb://<ten>, chi dung khi chay local).
+  - type: web
+    name: crm-gateway
+    runtime: node
+    plan: free
+    rootDir: services/api-gateway-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      - key: CONFIG_SERVER_URL
+        value: https://crm-config-service.onrender.com
+      - key: USER_SERVICE_URI
+        value: https://crm-user-service.onrender.com
+      - key: CUSTOMER_SERVICE_URI
+        value: https://crm-customer-service.onrender.com
+      - key: CRM_SERVICE_URI
+        value: https://crm-crm-service.onrender.com
+      # Doi thanh domain frontend that. KHONG dung '*' (request mang Bearer token).
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:5173
+
+  # config-service: native backend doc config-repo/ ngay trong rootDir.
+  # Khong bat buoc phai chay: client dung 'optional:configserver:' nen van start duoc,
+  # chi mat cac gia tri tinh chinh trong config-repo.
+  - type: web
+    name: crm-config-service
+    runtime: node
+    plan: free
+    rootDir: services/config-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      # config-repo nam ngay trong rootDir nen 'file:./config-repo' mac dinh da dung.
+
+  - type: web
+    name: crm-customer-service
+    runtime: node
+    plan: free
+    rootDir: services/customer-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      - key: CONFIG_SERVER_URL
+        value: https://crm-config-service.onrender.com
+      - key: MAIL_SERVICE_URL
+        value: https://crm-mail-service.onrender.com
+
+  - type: web
+    name: crm-crm-service
+    runtime: node
+    plan: free
+    rootDir: services/crm-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      - key: CONFIG_SERVER_URL
+        value: https://crm-config-service.onrender.com
+
+  - type: web
+    name: crm-mail-service
+    runtime: node
+    plan: free
+    rootDir: services/mail-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      - key: CONFIG_SERVER_URL
+        value: https://crm-config-service.onrender.com
+
+  - type: web
+    name: crm-user-service
+    runtime: node
+    plan: free
+    rootDir: services/user-service
+    buildCommand: sh ../../tools/render-jdk.sh && JAVA_HOME=$PWD/.jdk sh ./mvnw -B -DskipTests package && ln -sf target/*.jar app.jar
+    startCommand: sh -c 'sh ../../tools/render-jdk.sh && exec .jdk/bin/java -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -jar app.jar'
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: crm-secrets
+      - key: CONSUL_ENABLED
+        value: "false"
+      - key: CONFIG_SERVER_URL
+        value: https://crm-config-service.onrender.com
+      - key: MAIL_SERVICE_URL
+        value: https://crm-mail-service.onrender.com
+
+envVarGroups:
+  - name: crm-secrets
+    envVars:
+      # Toan he thong luu gio UTC (xem DATABASE_DESIGN_V2): Dockerfile cu dat TZ=UTC,
+      # gio dat qua bien moi truong.
+      - key: TZ
+        value: UTC
+      # Sinh san gia tri ngon ngu: moi service trong nhom dung CHUNG mot gia tri,
+      # nen JWT_SECRET o gateway va user-service luon khop nhau.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CONFIG_SERVER_PASSWORD
+        generateValue: true
+      # Render hoi gia tri khi Apply (secret that, khong luu trong git).
+      - key: DUMMY_BCRYPT_HASH
+        sync: false
+      - key: USER_DB_HOST
+        sync: false
+      - key: USER_DB_USERNAME
+        sync: false
+      - key: USER_DB_PASSWORD
+        sync: false
+      - key: CUSTOMER_DB_HOST
+        sync: false
+      - key: CUSTOMER_DB_USERNAME
+        sync: false
+      - key: CUSTOMER_DB_PASSWORD
+        sync: false
+      - key: CRM_DB_HOST
+        sync: false
+      - key: CRM_DB_USERNAME
+        sync: false
+      - key: CRM_DB_PASSWORD
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+

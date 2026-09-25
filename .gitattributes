@@ -1,0 +1,5 @@
+# Script shell (mvnw, tools/*.sh) phai giu LF: neu checkout ra CRLF thi 'sh' tren Linux
+# (Render) se loi "not found" / cu phap sai.
+*.sh text eol=lf
+mvnw text eol=lf
+*.cmd text eol=crlf

@@ -6,7 +6,7 @@ import org.springframework.cloud.config.server.EnableConfigServer;
 
 /**
  * Config tap trung cho toan bo he thong. Backend dang dung la native (doc file
- * trong config-repo/ da mount vao container), nen khong can them git repo hay
+ * trong config-repo/ cua module nay), nen khong can them git repo hay
  * Vault. Doi backend chi can doi profile + them vai dong properties, khong phai
  * sua Java.
  */
