@@ -51,7 +51,7 @@ public class ImageStorageService {
                     .header("apikey", serviceRoleKey)
                     .header("Content-Type", contentType)
                     .header("x-upsert", "true")
-                    .PUT(HttpRequest.BodyPublishers.ofByteArray(file.getBytes()))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(file.getBytes()))
                     .build();
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {

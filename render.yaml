@@ -42,8 +42,11 @@ services:
       - key: CRM_SERVICE_URI
         value: https://crm-crm-service-9dj8.onrender.com
       # Doi thanh domain frontend that. KHONG dung '*' (request mang Bearer token).
+      # setAllowedOrigins khop CHINH XAC tung origin (khong phai allowedOriginPatterns)
+      # nen khong dung duoc wildcard https://*.vercel.app. Preview deployment co domain
+      # ngau nhien tung lan -> phai them tay tung domain.
       - key: CORS_ALLOWED_ORIGINS
-        value: http://localhost:5173
+        value: http://localhost:5173,https://fe-estate-system.vercel.app
 
   # config-service: native backend doc config-repo/ ngay trong rootDir.
   # Khong bat buoc phai chay: client dung 'optional:configserver:' nen van start duoc,
