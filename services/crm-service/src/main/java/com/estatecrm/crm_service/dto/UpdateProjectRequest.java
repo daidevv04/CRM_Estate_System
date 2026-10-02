@@ -8,5 +8,6 @@ public record UpdateProjectRequest(
         @Size(max = 255) String location,
         @Size(max = 150) String investor,
         String description,
+        @Size(max = 500) String imageUrl,
         ProjectStatus status) {
 }

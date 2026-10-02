@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -30,10 +31,15 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final ProductRepository productRepository;
+    private final ImageStorageService imageStorageService;
 
-    public ProjectService(ProjectRepository projectRepository, ProductRepository productRepository) {
+    public ProjectService(
+            ProjectRepository projectRepository,
+            ProductRepository productRepository,
+            ImageStorageService imageStorageService) {
         this.projectRepository = projectRepository;
         this.productRepository = productRepository;
+        this.imageStorageService = imageStorageService;
     }
 
     @Transactional
@@ -41,7 +47,7 @@ public class ProjectService {
         requirePrivileged(role);
         Project project = new Project();
         apply(project, request.name(), request.location(), request.investor(),
-                request.description(), request.status());
+                request.description(), request.imageUrl(), request.status());
         project.setCreatedBy(actorId);
         return ProjectResponse.from(projectRepository.save(project));
     }
@@ -65,7 +71,7 @@ public class ProjectService {
         requirePrivileged(role);
         Project project = find(projectId);
         apply(project, request.name(), request.location(), request.investor(),
-                request.description(), request.status());
+                request.description(), request.imageUrl(), request.status());
         project.setUpdatedBy(actorId);
         return ProjectResponse.from(projectRepository.save(project));
     }
@@ -84,6 +90,15 @@ public class ProjectService {
         projectRepository.delete(project);
     }
 
+    @Transactional
+    public ProjectResponse uploadImage(UUID projectId, MultipartFile image, UUID actorId, String role) {
+        requirePrivileged(role);
+        Project project = find(projectId);
+        project.setImageUrl(imageStorageService.upload("projects", projectId.toString(), image));
+        project.setUpdatedBy(actorId);
+        return ProjectResponse.from(projectRepository.save(project));
+    }
+
     /** Chi ghi vao field nao request gui den; null = giu nguyen. */
     private void apply(
             Project project,
@@ -91,6 +106,7 @@ public class ProjectService {
             String location,
             String investor,
             String description,
+            String imageUrl,
             ProjectStatus status) {
         if (name != null) {
             project.setName(name);
@@ -103,6 +119,9 @@ public class ProjectService {
         }
         if (description != null) {
             project.setDescription(description);
+        }
+        if (imageUrl != null) {
+            project.setImageUrl(imageUrl);
         }
         if (status != null) {
             project.setStatus(status);

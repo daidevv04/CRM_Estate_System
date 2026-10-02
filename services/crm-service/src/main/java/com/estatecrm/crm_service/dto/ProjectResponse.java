@@ -11,6 +11,7 @@ public record ProjectResponse(
         String location,
         String investor,
         String description,
+        String imageUrl,
         ProjectStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
@@ -22,6 +23,7 @@ public record ProjectResponse(
                 project.getLocation(),
                 project.getInvestor(),
                 project.getDescription(),
+                project.getImageUrl(),
                 project.getStatus(),
                 project.getCreatedAt(),
                 project.getUpdatedAt());

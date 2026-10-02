@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -36,16 +37,19 @@ public class ProductService {
     private final ProjectRepository projectRepository;
     private final LeadRepository leadRepository;
     private final ContactDetailRepository contactDetailRepository;
+    private final ImageStorageService imageStorageService;
 
     public ProductService(
             ProductRepository productRepository,
             ProjectRepository projectRepository,
             LeadRepository leadRepository,
-            ContactDetailRepository contactDetailRepository) {
+            ContactDetailRepository contactDetailRepository,
+            ImageStorageService imageStorageService) {
         this.productRepository = productRepository;
         this.projectRepository = projectRepository;
         this.leadRepository = leadRepository;
         this.contactDetailRepository = contactDetailRepository;
+        this.imageStorageService = imageStorageService;
     }
 
     @Transactional
@@ -66,6 +70,7 @@ public class ProductService {
         product.setPrice(request.price());
         product.setBedroom(request.bedroom());
         product.setDirection(request.direction() == null ? null : request.direction().name());
+        product.setImageUrl(request.imageUrl());
         if (request.status() != null) {
             product.setStatus(request.status());
         }
@@ -126,6 +131,9 @@ public class ProductService {
         if (request.direction() != null) {
             product.setDirection(request.direction().name());
         }
+        if (request.imageUrl() != null) {
+            product.setImageUrl(request.imageUrl());
+        }
         if (request.status() != null) {
             product.setStatus(request.status());
         }
@@ -148,6 +156,15 @@ public class ProductService {
             throw new ConflictException("Product is used in a contract; delete it first");
         }
         productRepository.delete(product);
+    }
+
+    @Transactional
+    public ProductResponse uploadImage(UUID productId, MultipartFile image, UUID actorId, String role) {
+        requirePrivileged(role);
+        Product product = find(productId);
+        product.setImageUrl(imageStorageService.upload("products", productId.toString(), image));
+        product.setUpdatedBy(actorId);
+        return ProductResponse.from(productRepository.save(product));
     }
 
     private Product find(UUID productId) {

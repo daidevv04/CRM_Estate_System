@@ -17,6 +17,7 @@ public record ProductResponse(
         BigDecimal price,
         Integer bedroom,
         String direction,
+        String imageUrl,
         ProductStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
@@ -32,6 +33,7 @@ public record ProductResponse(
                 product.getPrice(),
                 product.getBedroom(),
                 product.getDirection(),
+                product.getImageUrl(),
                 product.getStatus(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());

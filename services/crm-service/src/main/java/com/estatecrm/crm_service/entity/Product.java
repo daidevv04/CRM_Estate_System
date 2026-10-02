@@ -61,6 +61,9 @@ public class Product extends AuditableEntity {
     @Column(length = 20)
     private String direction;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProductStatus status = ProductStatus.AVAILABLE;

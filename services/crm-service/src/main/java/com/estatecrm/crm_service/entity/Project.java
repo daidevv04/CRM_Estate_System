@@ -42,6 +42,9 @@ public class Project extends AuditableEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProjectStatus status = ProjectStatus.PLANNING;

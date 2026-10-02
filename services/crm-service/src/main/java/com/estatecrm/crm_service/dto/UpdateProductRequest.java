@@ -17,5 +17,6 @@ public record UpdateProductRequest(
         @PositiveOrZero BigDecimal price,
         @PositiveOrZero Integer bedroom,
         PropertyDirection direction,
+        @Size(max = 500) String imageUrl,
         ProductStatus status) {
 }

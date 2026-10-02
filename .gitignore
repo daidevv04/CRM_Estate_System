@@ -5,8 +5,19 @@
 
 # Build and IDE files
 **/target/
+.gradle/
+build/
+.mvn/timing.properties
 .idea/
 *.iml
+.classpath
+.project
+.settings/
+.factorypath
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
 # Local docs (design notes, DB scripts). Kept on disk, not pushed.
 docs/
 logs/
@@ -16,9 +27,15 @@ jdk.tgz
 # Script dev local (dev-up.ps1, test-api.ps1...) va thu muc tools: giu tren may, khong push.
 *.ps1
 tools/
+start.bat
+stop.bat
 
 # Local review scratch and generated test evidence
 .scratch_review/
+*.log
+*.tmp
+*.bak
+*.swp
 *-test.log
 *-final.log
 live-*.body
