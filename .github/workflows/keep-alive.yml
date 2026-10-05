@@ -1,0 +1,36 @@
+# Giu 6 service Render free khong ngu.
+#
+# Render free plan spin down sau 15 phut khong co inbound, lan request sau phai cho
+# cold start 40-60s (gateway -> config -> user/customer/crm). Cron nay ping health
+# moi 10 phut nen service luon "thuc", FE khong con phai cho.
+#
+# Luu y:
+#   - 401/403/404 VAN tinh la co inbound -> service van thuc. Khong dung curl --fail.
+#   - GitHub chi cho cron 5 phut/lan va co the tre vai phut -> de 10 phut cho an toan.
+#   - GitHub tu tat scheduled workflow sau 60 ngay repo khong co commit.
+#   - Repo private thi moi lan chay ton ~15s pipeline minutes.
+#   - Cach chinh thong: nang cap instance type (Starter) cho tung service, khong ngu nua.
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /actuator/health cua tung service
+        run: |
+          for url in \
+            https://crm-gateway-9dj8.onrender.com/actuator/health \
+            https://crm-config-service-9dj8.onrender.com/actuator/health \
+            https://crm-user-service-9dj8.onrender.com/actuator/health \
+            https://crm-customer-service-9dj8.onrender.com/actuator/health \
+            https://crm-crm-service-9dj8.onrender.com/actuator/health \
+            https://crm-mail-service-9dj8.onrender.com/actuator/health ; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$url" || true)
+            echo "$url -> $code"
+            sleep 2
+          done
