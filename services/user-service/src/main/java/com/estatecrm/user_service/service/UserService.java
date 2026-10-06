@@ -56,6 +56,7 @@ public class UserService {
         user.setEmail(email);
         user.setFullName(request.fullName());
         user.setPhone(request.phone());
+        user.setAddress(request.address());
         user.setRole(request.role() == null ? UserRole.SALES : request.role());
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedBy(userRepository.getReferenceById(adminId));
@@ -90,6 +91,9 @@ public class UserService {
         }
         if (request.fullName() != null) {
             user.setFullName(request.fullName());
+        }
+        if (request.address() != null) {
+            user.setAddress(request.address());
         }
         user.setUpdatedBy(userRepository.getReferenceById(adminId));
         return UserResponse.from(userRepository.save(user));

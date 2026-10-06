@@ -12,6 +12,7 @@ public record UserResponse(
         String email,
         String fullName,
         String phone,
+        String address,
         UserRole role,
         UserStatus status,
         LocalDateTime emailVerifiedAt) {
@@ -23,6 +24,7 @@ public record UserResponse(
                 user.getEmail(),
                 user.getFullName(),
                 user.getPhone(),
+                user.getAddress(),
                 user.getRole(),
                 user.getStatus(),
                 user.getEmailVerifiedAt());

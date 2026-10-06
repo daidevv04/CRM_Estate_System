@@ -7,5 +7,6 @@ import jakarta.validation.constraints.Size;
 public record UpdateUserProfileRequest(
         @Email @Size(max = 100) String email,
         @Size(max = 100) String fullName,
-        @Pattern(regexp = "^\\+[1-9]\\d{7,14}$") String phone) {
+        @Pattern(regexp = "^\\+[1-9]\\d{7,14}$") String phone,
+        @Size(max = 255) String address) {
 }
