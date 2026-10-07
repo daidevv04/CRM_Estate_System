@@ -3,6 +3,9 @@ package com.estatecrm.user_service.service;
 import com.estatecrm.user_service.dto.auth.DisableTwoFactorRequest;
 import com.estatecrm.user_service.dto.auth.EnableTwoFactorRequest;
 import com.estatecrm.user_service.dto.auth.LoginRequest;
+import com.estatecrm.user_service.dto.auth.PasswordResetConfirmRequest;
+import com.estatecrm.user_service.dto.auth.PasswordResetVerificationResponse;
+import com.estatecrm.user_service.dto.auth.PasswordResetVerifyRequest;
 import com.estatecrm.user_service.dto.auth.RefreshTokenRequest;
 import com.estatecrm.user_service.dto.auth.TokenResponse;
 import com.estatecrm.user_service.dto.auth.TwoFactorSetupResponse;
@@ -44,6 +47,9 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
 public class AuthService {
+
+    private static final Duration PASSWORD_RESET_TOKEN_TTL = Duration.ofMinutes(10);
+    private static final String PASSWORD_RESET_PURPOSE = "password-reset";
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -269,6 +275,49 @@ public class AuthService {
         refreshTokenRepository.revokeAllForUser(user.getId(), LocalDateTime.now());
     }
 
+    /** Always returns normally for unknown email; this endpoint must not reveal account existence. */
+    @Transactional
+    public void requestPasswordReset(String usernameOrEmail, String clientIp) {
+        otpService.send(usernameOrEmail, com.estatecrm.user_service.enums.OtpPurpose.RESET_PASSWORD, clientIp);
+    }
+
+    /** OTP is consumed before this response exposes account information. */
+    @Transactional
+    public PasswordResetVerificationResponse verifyPasswordReset(PasswordResetVerifyRequest request, String clientIp) {
+        User user = otpService.verify(
+                request.usernameOrEmail(), com.estatecrm.user_service.enums.OtpPurpose.RESET_PASSWORD, request.code(), clientIp);
+        return PasswordResetVerificationResponse.from(user, issuePasswordResetToken(user));
+    }
+
+    /** Reset token is bound to current password hash, so it cannot be replayed after a successful reset. */
+    @Transactional
+    public void confirmPasswordReset(PasswordResetConfirmRequest request) {
+        Jwt jwt;
+        try {
+            jwt = jwtDecoder.decode(request.resetToken());
+        } catch (JwtException exception) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid or expired password reset token");
+        }
+        if (!PASSWORD_RESET_PURPOSE.equals(jwt.getClaimAsString("purpose"))) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid or expired password reset token");
+        }
+
+        UUID userId;
+        try {
+            userId = UUID.fromString(jwt.getSubject());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid or expired password reset token");
+        }
+        User user = findById(userId);
+        if (user.getStatus() != UserStatus.ACTIVE
+                || !sha256(user.getPassword()).equals(jwt.getClaimAsString("password_fingerprint"))) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid or expired password reset token");
+        }
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setUpdatedBy(user);
+        refreshTokenRepository.revokeAllForUser(user.getId(), LocalDateTime.now());
+    }
+
     /** /auth/otp/verify voi purpose=VERIFY_EMAIL: ghi moc xac thuc email. */
     @Transactional
     public void verifyOtpEmail(VerifyOtpRequest request, String clientIp) {
@@ -307,6 +356,20 @@ public class AuthService {
     private User findById(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
+    }
+
+    private String issuePasswordResetToken(User user) {
+        Instant now = Instant.now();
+        return jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(),
+                JwtClaimsSet.builder()
+                        .issuedAt(now)
+                        .expiresAt(now.plus(PASSWORD_RESET_TOKEN_TTL))
+                        .subject(user.getId().toString())
+                        .claim("token_type", "password_reset")
+                        .claim("purpose", PASSWORD_RESET_PURPOSE)
+                        .claim("password_fingerprint", sha256(user.getPassword()))
+                        .build())).getTokenValue();
     }
 
     private String sha256(String value) {

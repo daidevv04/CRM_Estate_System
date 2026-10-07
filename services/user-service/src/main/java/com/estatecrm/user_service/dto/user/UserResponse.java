@@ -15,7 +15,12 @@ public record UserResponse(
         String address,
         UserRole role,
         UserStatus status,
-        LocalDateTime emailVerifiedAt) {
+        boolean is2faEnabled,
+        LocalDateTime emailVerifiedAt,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt,
+        UUID createdBy,
+        UUID updatedBy) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -27,6 +32,11 @@ public record UserResponse(
                 user.getAddress(),
                 user.getRole(),
                 user.getStatus(),
-                user.getEmailVerifiedAt());
+                user.isTwoFactorEnabled(),
+                user.getEmailVerifiedAt(),
+                user.getCreatedAt(),
+                user.getUpdatedAt(),
+                user.getCreatedBy() == null ? null : user.getCreatedBy().getId(),
+                user.getUpdatedBy() == null ? null : user.getUpdatedBy().getId());
     }
 }

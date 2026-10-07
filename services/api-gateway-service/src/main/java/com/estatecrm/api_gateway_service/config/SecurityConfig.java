@@ -67,7 +67,10 @@ public class SecurityConfig {
                                 "/api/auth/logout",
                                 "/api/auth/otp/send",
                                 "/api/auth/otp/verify",
-                                "/api/auth/2fa/verify")
+                                "/api/auth/2fa/verify",
+                                "/api/auth/password-reset/request",
+                                "/api/auth/password-reset/verify",
+                                "/api/auth/password-reset/confirm")
                         .permitAll()
                         // CORS preflight khong mang Authorization header.
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()

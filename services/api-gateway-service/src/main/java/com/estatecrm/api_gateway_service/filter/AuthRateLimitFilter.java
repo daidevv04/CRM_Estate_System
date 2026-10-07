@@ -29,7 +29,8 @@ public class AuthRateLimitFilter implements WebFilter {
 
     private static final Set<String> AUTH_PATHS = Set.of(
             "/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
-            "/api/auth/otp/send", "/api/auth/otp/verify", "/api/auth/2fa/verify");
+            "/api/auth/otp/send", "/api/auth/otp/verify", "/api/auth/2fa/verify",
+            "/api/auth/password-reset/request", "/api/auth/password-reset/verify", "/api/auth/password-reset/confirm");
     private static final int MAX_BUCKETS = 4_096;
 
     private final Map<String, Counter> counters = new ConcurrentHashMap<>();

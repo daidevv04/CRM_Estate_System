@@ -55,6 +55,24 @@ class AuthRateLimitFilterTests {
         assertThat(forwarded).hasValue(2);
     }
 
+    @Test
+    void limitsPasswordResetRequests() {
+        AuthRateLimitFilter filter = new AuthRateLimitFilter(
+                1, Duration.ofMinutes(1), Clock.systemUTC());
+        AtomicInteger forwarded = new AtomicInteger();
+        WebFilterChain chain = exchange -> {
+            forwarded.incrementAndGet();
+            return Mono.empty();
+        };
+
+        filter.filter(exchange("/api/auth/password-reset/request"), chain).block();
+        MockServerWebExchange second = exchange("/api/auth/password-reset/request");
+        filter.filter(second, chain).block();
+
+        assertThat(forwarded).hasValue(1);
+        assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     private MockServerWebExchange exchange(String path) {
         return MockServerWebExchange.from(MockServerHttpRequest.post(path)
                 .remoteAddress(new InetSocketAddress("127.0.0.1", 12345)));

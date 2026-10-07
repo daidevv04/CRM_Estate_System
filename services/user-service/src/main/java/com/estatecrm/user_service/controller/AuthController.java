@@ -3,6 +3,10 @@ package com.estatecrm.user_service.controller;
 import com.estatecrm.user_service.dto.auth.DisableTwoFactorRequest;
 import com.estatecrm.user_service.dto.auth.EnableTwoFactorRequest;
 import com.estatecrm.user_service.dto.auth.LoginRequest;
+import com.estatecrm.user_service.dto.auth.PasswordResetConfirmRequest;
+import com.estatecrm.user_service.dto.auth.PasswordResetRequest;
+import com.estatecrm.user_service.dto.auth.PasswordResetVerificationResponse;
+import com.estatecrm.user_service.dto.auth.PasswordResetVerifyRequest;
 import com.estatecrm.user_service.dto.auth.RefreshTokenRequest;
 import com.estatecrm.user_service.dto.auth.SendOtpRequest;
 import com.estatecrm.user_service.dto.auth.TokenResponse;
@@ -51,6 +55,25 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody RefreshTokenRequest request) {
         authService.logout(request);
+    }
+
+    /** Reset password public flow: email -> OTP -> short-lived reset token -> new password. */
+    @PostMapping("/password-reset/request")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void requestPasswordReset(@Valid @RequestBody PasswordResetRequest request, HttpServletRequest httpRequest) {
+        authService.requestPasswordReset(request.usernameOrEmail(), clientIp(httpRequest));
+    }
+
+    @PostMapping("/password-reset/verify")
+    public PasswordResetVerificationResponse verifyPasswordReset(
+            @Valid @RequestBody PasswordResetVerifyRequest request, HttpServletRequest httpRequest) {
+        return authService.verifyPasswordReset(request, clientIp(httpRequest));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        authService.confirmPasswordReset(request);
     }
 
     /**

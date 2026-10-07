@@ -50,6 +50,15 @@ public class UserController {
         return userService.get(UUID.fromString(jwt.getSubject()));
     }
 
+    /** Người dùng chỉ tự cập nhật dữ liệu liên hệ của chính mình; role và status vẫn do admin quản lý. */
+    @PatchMapping("/me/profile")
+    public UserResponse updateMyProfile(
+            @Valid @RequestBody UpdateUserProfileRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return userService.updateProfile(userId, request, userId);
+    }
+
     @PostMapping("/me/change-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(

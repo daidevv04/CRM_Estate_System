@@ -2,6 +2,8 @@ package com.estatecrm.crm_service.service;
 
 import com.estatecrm.crm_service.dto.CreateLeadRequest;
 import com.estatecrm.crm_service.dto.LeadResponse;
+import com.estatecrm.crm_service.dto.PipelineStageSummaryResponse;
+import com.estatecrm.crm_service.dto.PipelineSummaryResponse;
 import com.estatecrm.crm_service.dto.UpdateLeadRequest;
 import com.estatecrm.crm_service.entity.Lead;
 import com.estatecrm.crm_service.entity.LeadStageHistory;
@@ -12,7 +14,12 @@ import com.estatecrm.crm_service.repository.LeadRepository;
 import com.estatecrm.crm_service.repository.LeadStageHistoryRepository;
 import com.estatecrm.crm_service.repository.ProductRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 /**
  * Lead tiem nang. SALES chi thay/chinh sua lead minh duoc gan (assignedTo),
@@ -158,6 +166,52 @@ public class LeadService {
         return leadStageHistoryRepository.findByLeadIdOrderByChangedAtAsc(leadId).stream()
                 .map(com.estatecrm.crm_service.dto.LeadStageHistoryResponse::from)
                 .toList();
+    }
+
+    /**
+     * Bao cao funnel. `enteredCount` la so event vao stage trong ky; transition
+     * la event di dung tu stage lien truoc. SALES bi ep xem du lieu cua chinh minh.
+     */
+    @Transactional(readOnly = true)
+    public PipelineSummaryResponse pipelineSummary(
+            LocalDate from, LocalDate to, UUID assignedTo, UUID actorId, String role) {
+        if (to.isBefore(from)) {
+            throw new ResponseStatusException(BAD_REQUEST, "to must be on or after from");
+        }
+        UUID effectiveAssignedTo = isPrivileged(role) ? assignedTo : actorId;
+        List<Lead> leads = effectiveAssignedTo == null
+                ? leadRepository.findAll()
+                : leadRepository.findByAssignedTo(effectiveAssignedTo);
+        List<UUID> leadIds = leads.stream().map(Lead::getId).toList();
+        LocalDateTime fromAt = from.atStartOfDay();
+        LocalDateTime toExclusive = to.plusDays(1).atStartOfDay();
+        List<LeadStageHistory> history = leadIds.isEmpty()
+                ? List.of()
+                : leadStageHistoryRepository.findByLeadIdInAndChangedAtGreaterThanEqualAndChangedAtLessThan(
+                        leadIds, fromAt, toExclusive);
+        Map<LeadStage, List<Lead>> leadsByStage = leads.stream()
+                .collect(Collectors.groupingBy(Lead::getStage));
+        Map<LeadStage, Long> entriesByStage = history.stream().collect(Collectors.groupingBy(
+                LeadStageHistory::getToStage, Collectors.counting()));
+        Map<LeadStage, Long> exitsByStage = history.stream()
+                .filter(item -> item.getFromStage() != null)
+                .collect(Collectors.groupingBy(LeadStageHistory::getFromStage, Collectors.counting()));
+
+        LeadStage[] stages = LeadStage.values();
+        List<PipelineStageSummaryResponse> rows = java.util.Arrays.stream(stages).map(stage -> {
+            List<Lead> snapshot = leadsByStage.getOrDefault(stage, List.of());
+            BigDecimal expected = snapshot.stream().map(Lead::getExpectedValue)
+                    .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            int index = stage.ordinal();
+            LeadStage previous = index == 0 ? null : stages[index - 1];
+            long transitioned = previous == null ? 0 : history.stream()
+                    .filter(item -> item.getFromStage() == previous && item.getToStage() == stage).count();
+            long leftPrevious = previous == null ? 0 : exitsByStage.getOrDefault(previous, 0L);
+            Double rate = previous == null || leftPrevious == 0 ? null : (transitioned * 100.0) / leftPrevious;
+            return new PipelineStageSummaryResponse(
+                    stage, snapshot.size(), expected, entriesByStage.getOrDefault(stage, 0L), transitioned, rate);
+        }).toList();
+        return new PipelineSummaryResponse(rows);
     }
 
     private void recordStage(UUID leadId, LeadStage fromStage, LeadStage toStage, UUID actorId) {

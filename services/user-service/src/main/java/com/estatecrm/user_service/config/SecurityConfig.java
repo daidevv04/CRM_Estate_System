@@ -78,7 +78,7 @@ public class SecurityConfig {
                         // /auth/otp/send va /auth/2fa/verify phai public: nguoi dung
                         // chua co token moi can chung.
                         .requestMatchers(
-                                "/auth/login", "/auth/refresh", "/auth/logout",
+                                "/auth/login", "/auth/refresh", "/auth/logout", "/auth/password-reset/**",
                                 "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",
                                 "/actuator/health", "/error")
                         .permitAll()

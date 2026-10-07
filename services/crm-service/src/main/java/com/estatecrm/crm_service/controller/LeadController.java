@@ -3,6 +3,7 @@ package com.estatecrm.crm_service.controller;
 import com.estatecrm.crm_service.dto.CreateLeadRequest;
 import com.estatecrm.crm_service.dto.LeadResponse;
 import com.estatecrm.crm_service.dto.LeadStageHistoryResponse;
+import com.estatecrm.crm_service.dto.PipelineSummaryResponse;
 import com.estatecrm.crm_service.dto.UpdateLeadRequest;
 import com.estatecrm.crm_service.enums.LeadStage;
 import com.estatecrm.crm_service.service.LeadService;
@@ -66,6 +67,16 @@ public class LeadController {
     public java.util.List<LeadStageHistoryResponse> history(
             @PathVariable UUID leadId, @AuthenticationPrincipal Jwt jwt) {
         return leadService.history(leadId, actorId(jwt), role(jwt));
+    }
+
+    /** Funnel dung event chuyen stage append-only, khong suy dien tu snapshot lead. */
+    @GetMapping("/pipeline-summary")
+    public PipelineSummaryResponse pipelineSummary(
+            @RequestParam LocalDate from,
+            @RequestParam LocalDate to,
+            @RequestParam(required = false) UUID assignedTo,
+            @AuthenticationPrincipal Jwt jwt) {
+        return leadService.pipelineSummary(from, to, assignedTo, actorId(jwt), role(jwt));
     }
 
     @PatchMapping("/{leadId}")
