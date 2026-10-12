@@ -18,7 +18,6 @@ import lombok.Setter;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
-/** Mot dot thu tien, append-only de bao cao doanh thu theo thoi gian. */
 @Getter
 @Setter
 @NoArgsConstructor

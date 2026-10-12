@@ -18,12 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Dong san pham trong hop dong. Quyen rieng ke thua tu hop dong qua
- * DealService.requireAccess, giong cach EmailCareService ke tu khach hang.
- * San pham phai AVAILABLE/RESERVED khi them vao hop dong (rang buoc tuy
- * trang thai khong dat duoc o DB, xem V1__init.sql muc contact_detail).
- */
 @Service
 public class ContactDetailService {
 
@@ -97,7 +91,6 @@ public class ContactDetailService {
         contactDetailRepository.delete(requireItem(dealId, itemId, actorId, role));
     }
 
-    /** Nap dong theo id va kiem tra no thuoc dung hop dong dang xet. */
     private ContactDetail requireItem(
             UUID dealId, UUID itemId, UUID actorId, String role) {
         dealService.requireAccess(dealId, actorId, role);

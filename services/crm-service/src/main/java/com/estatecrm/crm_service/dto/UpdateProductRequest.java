@@ -8,7 +8,6 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
-/** PATCH: chi field nao gui len thi doi; null = giu nguyen. */
 public record UpdateProductRequest(
         @Size(max = 50) String code,
         ProductType type,

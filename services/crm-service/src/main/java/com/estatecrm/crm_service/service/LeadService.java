@@ -30,11 +30,6 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
-/**
- * Lead tiem nang. SALES chi thay/chinh sua lead minh duoc gan (assignedTo),
- * ADMIN/MANAGER thay tat ca. customer_id la UUID tho tro sang customer DB,
- * khong kiem tra ton tai duoc o day (khong co FK va khong goi service khac).
- */
 @Service
 public class LeadService {
 
@@ -57,10 +52,6 @@ public class LeadService {
         this.dealRepository = dealRepository;
     }
 
-    /**
-     * Tao lead. Product phai ton tai (FK cung DB). SALES luon la nguoi duoc gan;
-     * ADMIN/MANAGER co the gan cho sales khac hoac de mac dinh la chinh minh.
-     */
     @Transactional
     public LeadResponse create(CreateLeadRequest request, UUID actorId, String role) {
         if (!productRepository.existsById(request.productId())) {
@@ -84,7 +75,6 @@ public class LeadService {
         return LeadResponse.from(saved);
     }
 
-    /** SALES bi ep assignedTo = chinh ho; ADMIN/MANAGER loc tuy chon. */
     @Transactional(readOnly = true)
     public Page<LeadResponse> list(
             UUID customerId,
@@ -107,10 +97,6 @@ public class LeadService {
         return LeadResponse.from(requireAccess(leadId, actorId, role));
     }
 
-    /**
-     * Chinh sua lead. SALES chinh duoc stage/gia/han chot tren lead cua minh;
-     * doi nguoi duoc gan (assignedTo) chi ADMIN/MANAGER.
-     */
     @Transactional
     public LeadResponse update(
             UUID leadId, UpdateLeadRequest request, UUID actorId, String role) {
@@ -145,10 +131,6 @@ public class LeadService {
         return LeadResponse.from(saved);
     }
 
-    /**
-     * Xoa lead. Chan truoc neu lead da co hop dong (FK khong cascade) vi mot
-     * hop dong da chot khong nen mat doi suon.
-     */
     @Transactional
     public void delete(UUID leadId, UUID actorId, String role) {
         Lead lead = requireAccess(leadId, actorId, role);
@@ -158,7 +140,6 @@ public class LeadService {
         leadRepository.delete(lead);
     }
 
-    /** Lich su pipeline, ke thua quyen xem lead hien tai. */
     @Transactional(readOnly = true)
     public java.util.List<com.estatecrm.crm_service.dto.LeadStageHistoryResponse> history(
             UUID leadId, UUID actorId, String role) {
@@ -168,10 +149,6 @@ public class LeadService {
                 .toList();
     }
 
-    /**
-     * Bao cao funnel. `enteredCount` la so event vao stage trong ky; transition
-     * la event di dung tu stage lien truoc. SALES bi ep xem du lieu cua chinh minh.
-     */
     @Transactional(readOnly = true)
     public PipelineSummaryResponse pipelineSummary(
             LocalDate from, LocalDate to, UUID assignedTo, UUID actorId, String role) {
@@ -223,7 +200,6 @@ public class LeadService {
         leadStageHistoryRepository.save(history);
     }
 
-    /** SALES chi thay lead minh; ADMIN/MANAGER thay tat ca. */
     @Transactional(readOnly = true)
     public Lead requireAccess(UUID leadId, UUID actorId, String role) {
         Lead lead = leadRepository.findById(leadId)

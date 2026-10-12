@@ -126,8 +126,7 @@ public class AuthService {
             throw new ResponseStatusException(FORBIDDEN, "User is not active");
         }
         requireSecondFactor(user, request.totpCode(), accountKey, ipKey);
-        // Xoa ca bucket IP: neu khong, vai lan go nham cua nguoi khac trong cung
-        // 15 phut se khoa ca van phong du nguoi sau go dung mat khau.
+
         loginAttemptService.reset(accountKey);
         loginAttemptService.reset(ipKey);
         return issueTokens(user, Instant.now(), LocalDateTime.now());
@@ -153,8 +152,6 @@ public class AuthService {
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid refresh token"));
 
-        // Atomic single-use claim. Failure means the token raced, was already
-        // rotated, or expired. Only an already-revoked token signals reuse.
         if (refreshTokenRepository.tryRevoke(tokenHash, databaseNow) == 0) {
             if (storedToken.getRevokedAt() != null) {
                 refreshTokenRepository.revokeAllForUser(storedToken.getUser().getId(), databaseNow);
@@ -208,7 +205,6 @@ public class AuthService {
                 accessToken, refreshToken, "Bearer", accessTokenTtl.toSeconds());
     }
 
-    /** Buoc 2 cua dang nhap khi da bat 2FA: doi code TOTP lay token. */
     @Transactional
     public TokenResponse verifyTwoFactor(TwoFactorVerifyRequest request, String clientIp) {
         String identifier = request.usernameOrEmail().trim();
@@ -227,11 +223,6 @@ public class AuthService {
         return issueTokens(user, Instant.now(), LocalDateTime.now());
     }
 
-    /**
-     * Bat 2FA cho chinh minh. Sinh secret roi luu + bat ngay: rang buoc
-     * chk_users_2fa_secret khong cho ton tai secret khi co bat = false, nen khong
-     * the tach thanh 2 buoc xac nhan truoc khi luu.
-     */
     @Transactional
     public TwoFactorSetupResponse enableTwoFactor(UUID userId, EnableTwoFactorRequest request) {
         User user = findById(userId);
@@ -243,7 +234,6 @@ public class AuthService {
         return new TwoFactorSetupResponse(secret, totpService.otpauthUri(otpIssuer, user.getUsername(), secret));
     }
 
-    /** Tat 2FA: can mat khau hien tai va mot code TOTP con hieu luc. */
     @Transactional
     public void disableTwoFactor(UUID userId, DisableTwoFactorRequest request) {
         User user = findById(userId);
@@ -256,14 +246,12 @@ public class AuthService {
         user.setUpdatedBy(user);
     }
 
-    /** /auth/otp/verify voi purpose=LOGIN: doi OTP lay token. */
     @Transactional
     public TokenResponse verifyOtpLogin(VerifyOtpRequest request, String clientIp) {
         User user = otpService.verify(request.usernameOrEmail(), request.purpose(), request.code(), clientIp);
         return issueTokens(user, Instant.now(), LocalDateTime.now());
     }
 
-    /** /auth/otp/verify voi purpose=RESET_PASSWORD: dat mat khau moi, thu hoi token cu. */
     @Transactional
     public void verifyOtpResetPassword(VerifyOtpRequest request, String clientIp) {
         if (request.newPassword() == null) {
@@ -275,13 +263,11 @@ public class AuthService {
         refreshTokenRepository.revokeAllForUser(user.getId(), LocalDateTime.now());
     }
 
-    /** Always returns normally for unknown email; this endpoint must not reveal account existence. */
     @Transactional
     public void requestPasswordReset(String usernameOrEmail, String clientIp) {
         otpService.send(usernameOrEmail, com.estatecrm.user_service.enums.OtpPurpose.RESET_PASSWORD, clientIp);
     }
 
-    /** OTP is consumed before this response exposes account information. */
     @Transactional
     public PasswordResetVerificationResponse verifyPasswordReset(PasswordResetVerifyRequest request, String clientIp) {
         User user = otpService.verify(
@@ -289,7 +275,6 @@ public class AuthService {
         return PasswordResetVerificationResponse.from(user, issuePasswordResetToken(user));
     }
 
-    /** Reset token is bound to current password hash, so it cannot be replayed after a successful reset. */
     @Transactional
     public void confirmPasswordReset(PasswordResetConfirmRequest request) {
         Jwt jwt;
@@ -318,7 +303,6 @@ public class AuthService {
         refreshTokenRepository.revokeAllForUser(user.getId(), LocalDateTime.now());
     }
 
-    /** /auth/otp/verify voi purpose=VERIFY_EMAIL: ghi moc xac thuc email. */
     @Transactional
     public void verifyOtpEmail(VerifyOtpRequest request, String clientIp) {
         User user = otpService.verify(request.usernameOrEmail(), request.purpose(), request.code(), clientIp);
@@ -326,10 +310,6 @@ public class AuthService {
         user.setUpdatedBy(user);
     }
 
-    /**
-     * Bat buoc TOTP khi tai khoan da bat 2FA. Code sai tinh la mot lan dang nhap
-     * that bai (chung bucket voi sai mat khau) de khong do duoc 6 chu so vo han.
-     */
     private void requireSecondFactor(User user, String totpCode, String accountKey, String ipKey) {
         if (!user.isTwoFactorEnabled()) {
             return;

@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** PATCH: chi field nao gui len thi doi; null (khong co annotation NotBlank/NotNull) = giu nguyen. */
 public record UpdateDealRequest(
         @Size(max = 50) String contractCode,
         @PositiveOrZero BigDecimal contractValue,

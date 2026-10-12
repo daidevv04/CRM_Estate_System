@@ -11,7 +11,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.TOO_MANY_REQUESTS;
 
-
 @Component
 public class LoginAttemptService {
 

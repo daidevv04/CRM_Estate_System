@@ -19,16 +19,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Hop dong chinh thuc khi mot lead chot thanh cong.
- * lead_id la UNIQUE o DB: mot lead chi ra mot hop dong. Nhieu san pham trong
- * cung hop dong nam o contact_detail.
- * sales_id va approved_by la UUID tho tro toi user-db.users.id.
- *
- * Rang buoc dang luu y o DB (xem V1__init.sql):
- *  - APPROVED bat buoc co approved_by va approved_at
- *  - deposit_amount khong duoc lon hon contract_value
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -65,7 +55,6 @@ public class Deal extends AuditableEntity {
     @Column(name = "payment_status", nullable = false, length = 20)
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
-    /** Tien mat / Chuyen khoan / Vay ngan hang. De tu do, khong gioi han enum. */
     @Column(name = "payment_method", length = 30)
     private String paymentMethod;
 
@@ -79,7 +68,6 @@ public class Deal extends AuditableEntity {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    /** Link file scan hop dong (S3/Drive). */
     @Column(name = "file_url", length = 500)
     private String fileUrl;
 

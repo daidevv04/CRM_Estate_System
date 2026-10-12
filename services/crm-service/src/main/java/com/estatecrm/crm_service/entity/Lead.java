@@ -16,12 +16,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Khach hang tiem nang quan tam mot san pham.
- * customer_id va assigned_to la UUID tho tro toi customer-db.customers.id va
- * user-db.users.id (project Supabase khac), khong the dat FK vat ly.
- * product_id nam cung DB nay nen co FK that o tang DB.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -43,11 +37,9 @@ public class Lead extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private LeadStage stage = LeadStage.NEW;
 
-    /** Gia tri du kien cua thuong vu, numeric(15,2). */
     @Column(name = "expected_value", precision = 15, scale = 2)
     private BigDecimal expectedValue;
 
-    /** Ngay du kien chot. Khong chan qua khu o DB (now() la ham volatile). */
     @Column(name = "close_date")
     private LocalDate closeDate;
 

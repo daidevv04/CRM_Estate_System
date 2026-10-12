@@ -18,11 +18,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Khach hang. owner_id cung cac cot audit la UUID tho tro toi user-db.users.id
- * vi bang users nam o project Supabase khac, khong the dat FK vat ly.
- * created_at/updated_at do DB sinh, xem ghi chu o hai cot ben duoi.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -57,11 +52,6 @@ public class Customer {
     @Column(nullable = false, length = 20)
     private CustomerStatus status = CustomerStatus.NEW;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Khong set o Java: Java dung mui gio JVM con
-     * DB dung mui gio cua phien lam viec, hai ben lech nhau.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

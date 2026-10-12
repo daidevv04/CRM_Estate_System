@@ -19,10 +19,6 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Du an bat dong san. Doc: moi vai tro. Tao/sua/xoa: ADMIN/MANAGER (giong
- * EmailTemplateService) vi du lieu catalog duoc chia keo ca he thong.
- */
 @Service
 public class ProjectService {
 
@@ -76,10 +72,6 @@ public class ProjectService {
         return ProjectResponse.from(projectRepository.save(project));
     }
 
-    /**
-     * Xoa du an. Chan truoc neu con san pham (FK khong cascade), de tra message
-     * dung ngu canh thay vi loi DB.
-     */
     @Transactional
     public void delete(UUID projectId, String role) {
         requirePrivileged(role);
@@ -99,7 +91,6 @@ public class ProjectService {
         return ProjectResponse.from(projectRepository.save(project));
     }
 
-    /** Chi ghi vao field nao request gui den; null = giu nguyen. */
     private void apply(
             Project project,
             String name,

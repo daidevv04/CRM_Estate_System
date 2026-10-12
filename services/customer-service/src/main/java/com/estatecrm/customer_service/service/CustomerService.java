@@ -21,12 +21,6 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Quan ly khach hang.
- * ADMIN/MANAGER thay tat ca; SALES chi thay khach minh phu trach
- * (owner_id == actorId). owner_id la UUID tho vi bang users nam o project
- * Supabase khac, khong co FK vat ly.
- */
 @Service
 public class CustomerService {
 
@@ -46,11 +40,6 @@ public class CustomerService {
         this.appointmentRepository = appointmentRepository;
     }
 
-    /**
-     * Tao khach hang moi.
-     * Chi ADMIN/MANAGER duoc gan owner khac; SALES luon la owner cua ban ghi
-     * minh tao. Phone/email so trung khong phan biet hoa thuong.
-     */
     @Transactional
     public CustomerResponse create(CreateCustomerRequest request, UUID actorId, String role) {
         String email = normalizeEmail(request.email());
@@ -76,10 +65,6 @@ public class CustomerService {
         return CustomerResponse.from(customerRepository.save(customer));
     }
 
-    /**
-     * Danh sach khach hang co loc. SALES chi thay khach minh phu trach nen bi ep
-     * ownerId = actorId, bo qua tham so loc owner tu client.
-     */
     @Transactional(readOnly = true)
     public Page<CustomerResponse> list(
             UUID actorId,
@@ -101,10 +86,6 @@ public class CustomerService {
         return CustomerResponse.from(requireAccess(customerId, actorId, role));
     }
 
-    /**
-     * Cap nhat mot phan (PATCH). Field null = giu nguyen gia tri cu,
-     * khong ghi de. Chi ADMIN/MANAGER moi doi duoc owner.
-     */
     @Transactional
     public CustomerResponse update(
             UUID customerId, UpdateCustomerRequest request, UUID actorId, String role) {
@@ -143,10 +124,6 @@ public class CustomerService {
         return CustomerResponse.from(customerRepository.save(customer));
     }
 
-    /**
-     * Xoa khach hang. Chan truoc neu con nhat ky cham soc hoac lich hen, thay vi
-     * de FK nem loi va tra ve message sai ngu canh.
-     */
     @Transactional
     public void delete(UUID customerId, UUID actorId, String role) {
         Customer customer = requireAccess(customerId, actorId, role);
@@ -159,11 +136,6 @@ public class CustomerService {
         customerRepository.delete(customer);
     }
 
-    /**
-     * Nap khach hang va chan truy cap neu khong phai chu so huu va khong phai
-     * ADMIN/MANAGER. Dung chung cho CustomerCareService va AppointmentService
-     * de quy tac so huu chi nam mot cho.
-     */
     @Transactional(readOnly = true)
     public Customer requireAccess(UUID customerId, UUID actorId, String role) {
         Customer customer = customerRepository.findById(customerId)
@@ -178,10 +150,6 @@ public class CustomerService {
         return ADMIN.equals(role) || MANAGER.equals(role);
     }
 
-    /**
-     * Email chuan hoa ve chu thuong de so trung khong phan biet hoa thuong.
-     * Tra ve null neu dau vao null/rong.
-     */
     private String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {
             return null;

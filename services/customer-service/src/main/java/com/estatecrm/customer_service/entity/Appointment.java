@@ -53,15 +53,13 @@ public class Appointment {
     @Column(name = "reminder_minutes")
     private Integer reminderMinutes;
 
+    @Column(name = "reminder_sent_at")
+    private LocalDateTime reminderSentAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AppointmentStatus status = AppointmentStatus.PENDING;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Khong set o Java: Java dung mui gio JVM con
-     * DB dung mui gio cua phien lam viec, hai ben lech nhau.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

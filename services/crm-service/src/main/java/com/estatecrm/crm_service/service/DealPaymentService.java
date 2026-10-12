@@ -14,10 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Thu tien append-only. Khong co update/delete: sua giao dich tai chinh phai la
- * nghiep vu dieu chinh rieng, khong duoc im lang viet lai lich su.
- */
 @Service
 public class DealPaymentService {
 

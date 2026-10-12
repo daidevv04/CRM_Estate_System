@@ -21,12 +21,6 @@ import org.springframework.security.oauth2.server.resource.InvalidBearerTokenExc
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Mail-service khong nam sau gateway va khong phuc vu nguoi dung cuoi: chi
- * nhan internal token do user-service ky bang JWT_SECRET dung chung
- * (claim scope=internal). Access token cua nhan vien KHONG dung duoc o day, nen
- * mot token bi lo khong bien mail-service thanh cong cu gui thu.
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {

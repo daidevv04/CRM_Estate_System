@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** API noi bo: chi user-service goi, bang internal token (xem SecurityConfig). */
 @RestController
 @RequestMapping("/emails")
 public class MailController {

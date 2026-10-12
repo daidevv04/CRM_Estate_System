@@ -19,10 +19,6 @@ public interface CustomerRepository
 
     boolean existsByEmail(String email);
 
-    /**
-     * Loc dong cho GET /customers. Tham so null/rong = bo qua dieu kien do.
-     * keyword tim tren full_name, phone, email (khong phan biet hoa thuong).
-     */
     static Specification<Customer> filter(
             UUID ownerId, CustomerStatus status, DemandType demandType, String source, String keyword) {
         return (root, query, cb) -> {

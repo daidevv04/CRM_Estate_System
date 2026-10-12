@@ -17,10 +17,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Goi mail-service qua REST. customer-service tu ky internal token song 1 phut
- * (claim scope=internal); token cua nhan vien khong duoc forward sang mail.
- */
 @Component
 public class MailClient {
 

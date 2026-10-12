@@ -17,7 +17,6 @@ import lombok.Setter;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
-/** Ban ghi append-only cho funnel/report; khong sua hay xoa qua API. */
 @Getter
 @Setter
 @NoArgsConstructor

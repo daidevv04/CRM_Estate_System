@@ -10,19 +10,13 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Component;
 
-/**
- * TOTP theo RFC 6238 cho 2FA. Viet bang JDK (HmacSHA1 + Base32 tu lam) thay vi
- * them mot thu vien chi de dung ~80 dong nay.
- *
- * Cua so +/-1 time step de bu lech dong ho giua dien thoai va server.
- */
 @Component
 public class TotpService {
 
     private static final String BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     private static final int DIGITS = 6;
     private static final long TIME_STEP_SECONDS = 30;
-    /** 160 bit: do dai khoa muc khuyen nghi cua RFC 4226. */
+
     private static final int SECRET_BYTES = 20;
 
     private final SecureRandom random = new SecureRandom();
@@ -50,7 +44,6 @@ public class TotpService {
         return false;
     }
 
-    /** HOTP cua RFC 4226: HMAC-SHA1 roi cat dong (dynamic truncation) ve 6 chu so. */
     public String generateCode(String secret, long counter) {
         byte[] key = base32Decode(secret);
         try {
@@ -68,7 +61,6 @@ public class TotpService {
         }
     }
 
-    /** URI de app authenticator quet QR. */
     public String otpauthUri(String issuer, String account, String secret) {
         return "otpauth://totp/" + urlEncode(issuer + ":" + account)
                 + "?secret=" + secret
@@ -81,7 +73,6 @@ public class TotpService {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    /** So sanh khong phu thuoc thoi gian de khong lo vi tri chu so dung. */
     private boolean constantTimeEquals(String left, String right) {
         if (left.length() != right.length()) {
             return false;

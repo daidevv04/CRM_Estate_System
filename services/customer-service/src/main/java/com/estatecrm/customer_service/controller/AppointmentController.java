@@ -25,10 +25,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Lich hen. SALES chi thay lich cua minh; ADMIN/MANAGER thay tat ca.
- * /appointments/customer/{id} xem lich theo tung khach hang.
- */
 @RestController
 @RequestMapping("/appointments")
 public class AppointmentController {
@@ -85,12 +81,10 @@ public class AppointmentController {
         appointmentService.delete(appointmentId, actorId(jwt), role(jwt));
     }
 
-    /** Lay id nguoi dang nhap tu claim subject cua JWT da verify. */
     private UUID actorId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }
 
-    /** Lay vai tro tu claim "role" do user-service phat hanh. */
     private String role(Jwt jwt) {
         return jwt.getClaimAsString("role");
     }

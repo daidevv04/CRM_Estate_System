@@ -23,10 +23,6 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * San pham bat dong san. Doc: moi vai tro. Tao/sua/xoa: ADMIN/MANAGER.
- * Ma can chi duy nhat trong pham vi mot du an (uq_products_project_code).
- */
 @Service
 public class ProductService {
 
@@ -141,10 +137,6 @@ public class ProductService {
         return ProductResponse.from(productRepository.save(product));
     }
 
-    /**
-     * Xoa san pham. Chan truoc khi con lead hoac dong hop dong tro toi
-     * (FK khong cascade), de tra message dung ngu canh thay vi loi DB.
-     */
     @Transactional
     public void delete(UUID productId, String role) {
         requirePrivileged(role);

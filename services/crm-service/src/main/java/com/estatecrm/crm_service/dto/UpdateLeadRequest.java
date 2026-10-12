@@ -6,7 +6,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** PATCH: chi field nao gui len thi doi; null = giu nguyen. */
 public record UpdateLeadRequest(
         UUID customerId,
         UUID productId,

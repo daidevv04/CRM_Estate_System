@@ -13,10 +13,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface EmailCareRepository
         extends JpaRepository<EmailCare, UUID>, JpaSpecificationExecutor<EmailCare> {
 
-    /** Dem email cua khach (qua nhat ky), de chan xoa khach khi con du lieu con. */
     long countByCustomerCareCustomerId(UUID customerId);
 
-    /** Loc theo nhat ky cham soc va status. status null = lay tat ca. */
     static Specification<EmailCare> filter(UUID customerCareId, EmailCareStatus status) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();

@@ -80,12 +80,10 @@ public class ProjectController {
         projectService.delete(projectId, role(jwt));
     }
 
-    /** Lay id nguoi dang nhap tu claim subject cua JWT da verify. */
     private UUID actorId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }
 
-    /** Lay vai tro tu claim "role" do user-service phat hanh. */
     private String role(Jwt jwt) {
         return jwt.getClaimAsString("role");
     }

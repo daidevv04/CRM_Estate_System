@@ -16,13 +16,6 @@ import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
-/**
- * Verify access token tai cua ngo vao. Cac service phia sau van verify lai
- * (defense in depth) nen goi thang vao port noi bo khong bypass duoc auth.
- *
- * Dung ban Reactive vi Spring Cloud Gateway chay tren WebFlux, khong dung
- * duoc SecurityFilterChain cua servlet.
- */
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
@@ -47,23 +40,18 @@ public class SecurityConfig {
     SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                // CORS phai do chinh security xu ly: neu de CorsWebFilter rieng thi
-                // response 401/403 do security tu viet khong co header CORS, browser
-                // chan response, frontend khong the biet la 401 de refresh token.
+
                 .cors(Customizer.withDefaults())
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        // /error phai public, neu khong moi loi chua xac thuc bi doi
-                        // thanh 401 rong thay vi 404/400 that su.
+
                         .pathMatchers("/actuator/health", "/error").permitAll()
-                        // Login, refresh va cac buoc xac thuc chua co token (OTP, 2FA)
-                        // phai vao duoc khi chua co token.
+
                         .pathMatchers(HttpMethod.POST,
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                // Logout nhan refresh token trong request body; token nay bi chan lam
-                                // bearer token, nen phai public de user-service revoke duoc token.
+
                                 "/api/auth/logout",
                                 "/api/auth/otp/send",
                                 "/api/auth/otp/verify",
@@ -72,7 +60,7 @@ public class SecurityConfig {
                                 "/api/auth/password-reset/verify",
                                 "/api/auth/password-reset/confirm")
                         .permitAll()
-                        // CORS preflight khong mang Authorization header.
+
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {

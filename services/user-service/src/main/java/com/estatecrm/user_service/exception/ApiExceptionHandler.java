@@ -11,11 +11,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    /**
-     * Loi co status cu the (401 sai mat khau, 404 khong tim thay...). Khong co
-     * handler nay thi Spring dispatch sang /error, va /error tung bi Security
-     * chan nen response thanh 401 rong, mat ca status lan message.
-     */
     @ExceptionHandler(ResponseStatusException.class)
     ProblemDetail handleResponseStatus(ResponseStatusException exception) {
         return ProblemDetail.forStatusAndDetail(exception.getStatusCode(), exception.getReason());
@@ -40,4 +35,3 @@ public class ApiExceptionHandler {
         return problem;
     }
 }
-

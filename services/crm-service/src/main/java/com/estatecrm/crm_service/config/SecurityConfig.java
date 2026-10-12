@@ -20,11 +20,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Verify access token do user-service phat hanh bang JWT_SECRET dung chung.
- * Service nay khong goi user-service; id nguoi dung va vai tro doc thang tu
- * token.
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -45,15 +40,13 @@ public class SecurityConfig {
                 .build();
     }
 
-    /** Map claim "role" thanh authority ROLE_* de dung hasRole(). */
     @Bean
     Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("role");
         authorities.setAuthorityPrefix("ROLE_");
         return jwt -> {
-            // Refresh token cung duoc ky bang JWT_SECRET nen chu ky hop le. Chi
-            // access token moi duoc dung lam bearer.
+
             if (jwt.hasClaim("token_type")) {
                 throw new InvalidBearerTokenException("Refresh token is not a bearer token");
             }
@@ -69,8 +62,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // /error phai public: neu khong, loi chua xac thuc bi doi thanh
-                        // 401 rong thay vi tra dung status/body.
+
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt

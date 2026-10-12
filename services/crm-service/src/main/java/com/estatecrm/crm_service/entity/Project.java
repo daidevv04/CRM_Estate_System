@@ -14,11 +14,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Du an bat dong san.
- * created_at/updated_at do DB sinh (xem AuditableEntity), khong set o Java de tranh
- * lech mui gio giua JVM va phien lam viec cua DB.
- */
 @Getter
 @Setter
 @NoArgsConstructor

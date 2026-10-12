@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Upload cover public vao Supabase Storage. Service role key chi nam o server. */
 @Service
 public class ImageStorageService {
 

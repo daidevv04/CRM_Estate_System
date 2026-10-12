@@ -40,11 +40,9 @@ public class OtpVerification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    /** SHA-256 hex cua OTP 6 chu so; database V2 khong luu plaintext OTP. */
     @Column(name = "otp_code", nullable = false, length = 64)
     private String otpCode;
 
-    /** Dem lan nhap sai, huy OTP khi dat nguong de chong brute-force qua restart. */
     @Column(nullable = false)
     private int attempts;
 
@@ -58,11 +56,6 @@ public class OtpVerification {
     @Column(name = "is_used", nullable = false)
     private boolean used;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Ca hai dung gio cua phien lam viec cua DB.
-     * Khong set o Java vi Java dung mui gio cua JVM, lech voi DB.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

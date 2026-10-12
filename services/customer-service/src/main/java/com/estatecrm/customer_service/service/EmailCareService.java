@@ -21,15 +21,6 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Lich su email da gui trong tung nhat ky cham soc.
- * Quyen truy cap thua huong tu khach hang: moi thao tac deu goi
- * CustomerService.requireAccess truoc, nen SALES chi thao tac duoc tren nhat ky
- * cua khach minh phu trach.
- *
- * Email duoc gui that qua mail-service. Ban ghi chi duoc luu sau khi mail-service
- * nhan gui thanh cong, nen status SENT luon co nghia la da gui that.
- */
 @Service
 public class EmailCareService {
 
@@ -52,10 +43,6 @@ public class EmailCareService {
         this.mailClient = mailClient;
     }
 
-    /**
-     * Ghi lai mot email da gui. Neu thieu subject/body thi lay tu mau; vay nen
-     * phai co it nhat mot trong hai: mau hoac noi dung soan tay.
-     */
     @Transactional
     public EmailCareResponse create(
             UUID customerId, UUID careId, CreateEmailCareRequest request, UUID actorId, String role) {
@@ -83,9 +70,9 @@ public class EmailCareService {
         careMail.setSubject(subject);
         careMail.setBody(body);
         careMail.setStatus(request.status() == null ? EmailCareStatus.SENT : request.status());
-        // Chi email SENT moi co moc thoi gian gui; FAILED thi de trong.
+
         if (careMail.getStatus() == EmailCareStatus.SENT) {
-            // Gui truoc khi luu: mail loi thi khong de lai ban ghi SENT khong that.
+
             mailClient.send(request.toEmail(), subject, body);
             careMail.setSentAt(LocalDateTime.now());
         }
@@ -93,7 +80,6 @@ public class EmailCareService {
         return EmailCareResponse.from(emailCareRepository.save(careMail));
     }
 
-    /** Danh sach email cua mot nhat ky cham soc, loc tuy chon theo status. */
     @Transactional(readOnly = true)
     public Page<EmailCareResponse> listByCare(
             UUID customerId,
@@ -113,7 +99,6 @@ public class EmailCareService {
         return EmailCareResponse.from(requireEmail(customerId, emailId, actorId, role));
     }
 
-    /** Cap nhat trang thai gui. OPENED se tu dien openedAt neu chua co. */
     @Transactional
     public EmailCareResponse update(
             UUID customerId, UUID emailId, UpdateEmailCareRequest request, UUID actorId, String role) {
@@ -124,7 +109,7 @@ public class EmailCareService {
                 careMail.setOpenedAt(LocalDateTime.now());
             }
             if (request.status() == EmailCareStatus.SENT && careMail.getSentAt() == null) {
-                // Chuyen tu FAILED/CLICKED sang SENT = gui lai, nen phai gui that.
+
                 mailClient.send(careMail.getToEmail(), careMail.getSubject(), careMail.getBody());
                 careMail.setSentAt(LocalDateTime.now());
             }
@@ -141,10 +126,6 @@ public class EmailCareService {
         emailCareRepository.delete(requireEmail(customerId, emailId, actorId, role));
     }
 
-    /**
-     * Nap nhat ky va chan truy cap. Nem 404 neu nhat ky thuoc khach khac, thay vi
-     * im lang bo qua.
-     */
     private CustomerCare requireCare(UUID customerId, UUID careId, UUID actorId, String role) {
         customerService.requireAccess(customerId, actorId, role);
         return customerCareRepository.findById(careId)
@@ -152,7 +133,6 @@ public class EmailCareService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Customer care not found"));
     }
 
-    /** Nap email theo id va kiem tra no thuoc dung nhat ky cua khach dang xet. */
     private EmailCare requireEmail(UUID customerId, UUID emailId, UUID actorId, String role) {
         EmailCare careMail = emailCareRepository.findById(emailId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Email care not found"));

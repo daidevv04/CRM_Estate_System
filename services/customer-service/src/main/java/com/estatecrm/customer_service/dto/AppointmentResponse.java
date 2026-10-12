@@ -14,6 +14,7 @@ public record AppointmentResponse(
         LocalDateTime endTime,
         String color,
         Integer reminderMinutes,
+        LocalDateTime reminderSentAt,
         AppointmentStatus status) {
 
     public static AppointmentResponse from(Appointment appointment) {
@@ -26,6 +27,7 @@ public record AppointmentResponse(
                 appointment.getEndTime(),
                 appointment.getColor(),
                 appointment.getReminderMinutes(),
+                appointment.getReminderSentAt(),
                 appointment.getStatus());
     }
 }

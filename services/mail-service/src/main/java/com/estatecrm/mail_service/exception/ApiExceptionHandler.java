@@ -10,7 +10,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    /** Loi co status cu the (400 thieu field, 500 nha cung cap mail loi...). */
     @ExceptionHandler(ResponseStatusException.class)
     ProblemDetail handleResponseStatus(ResponseStatusException exception) {
         return ProblemDetail.forStatusAndDetail(exception.getStatusCode(), exception.getReason());

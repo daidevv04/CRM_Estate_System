@@ -17,10 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Kho mau email. Khac voi khach hang/nhat ky, day la du lieu dung chung nen
- * ADMIN/MANAGER moi duoc tao/sua/xoa; SALES chi duoc doc de chon mau gui.
- */
 @Service
 public class EmailTemplateService {
 
@@ -30,7 +26,6 @@ public class EmailTemplateService {
         this.emailTemplateRepository = emailTemplateRepository;
     }
 
-    /** Tao mau moi. Ten khong duoc trung, khop unique index uq_email_templates_name. */
     @Transactional
     public EmailTemplateResponse create(
             CreateEmailTemplateRequest request, UUID actorId, String role) {
@@ -48,7 +43,6 @@ public class EmailTemplateService {
         return EmailTemplateResponse.from(emailTemplateRepository.save(template));
     }
 
-    /** Danh sach mau, loc theo category/status/keyword (ten hoac subject). */
     @Transactional(readOnly = true)
     public Page<EmailTemplateResponse> list(
             EmailTemplateCategory category,
@@ -65,7 +59,6 @@ public class EmailTemplateService {
         return EmailTemplateResponse.from(requireTemplate(templateId));
     }
 
-    /** Sua mot phan mau. Field null = giu nguyen gia tri cu. */
     @Transactional
     public EmailTemplateResponse update(
             UUID templateId, UpdateEmailTemplateRequest request, UUID actorId, String role) {
@@ -106,7 +99,6 @@ public class EmailTemplateService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Email template not found"));
     }
 
-    /** Chi ADMIN/MANAGER duoc thay doi kho mau dung chung. */
     private void requirePrivileged(String role) {
         if (!"ADMIN".equals(role) && !"MANAGER".equals(role)) {
             throw new ResponseStatusException(

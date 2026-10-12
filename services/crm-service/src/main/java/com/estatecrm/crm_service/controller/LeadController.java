@@ -69,7 +69,6 @@ public class LeadController {
         return leadService.history(leadId, actorId(jwt), role(jwt));
     }
 
-    /** Funnel dung event chuyen stage append-only, khong suy dien tu snapshot lead. */
     @GetMapping("/pipeline-summary")
     public PipelineSummaryResponse pipelineSummary(
             @RequestParam LocalDate from,
@@ -93,12 +92,10 @@ public class LeadController {
         leadService.delete(leadId, actorId(jwt), role(jwt));
     }
 
-    /** Lay id nguoi dang nhap tu claim subject cua JWT da verify. */
     private UUID actorId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }
 
-    /** Lay vai tro tu claim "role" do user-service phat hanh. */
     private String role(Jwt jwt) {
         return jwt.getClaimAsString("role");
     }

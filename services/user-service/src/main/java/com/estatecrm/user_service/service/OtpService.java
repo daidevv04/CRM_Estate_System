@@ -23,20 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
-/**
- * OTP dung mot lan gui qua email (LOGIN, RESET_PASSWORD).
- *
- * Gioi han tan suat dung lai LoginAttemptService voi key rieng "otp:...": key
- * "account:" danh cho sai mat khau nen khong the dung chung.
- *
- * Database V2 chi luu SHA-256 cua ma 6 chu so. Ma goc chi ton tai trong request
- * gui mail; ma song 5 phut, dung mot lan, va ma cu bi vo hieu khi phat hanh ma moi.
- */
 @Service
 public class OtpService {
 
     private static final int OTP_BOUND = 1_000_000;
-    /** Database attempts la hang rao ben vung qua restart/scale-out. */
+
     private static final int MAX_OTP_ATTEMPTS = 5;
 
     private final OtpVerificationRepository otpRepository;
@@ -62,14 +53,9 @@ public class OtpService {
         this.maxAttempts = maxAttempts;
     }
 
-    /**
-     * Sinh va gui OTP. Luon tra ve binh thuong du tai khoan khong ton tai hay
-     * khong co email, de khong bien endpoint nay thanh cong cu do tai khoan.
-     */
     @Transactional
     public void send(String usernameOrEmail, OtpPurpose purpose, String clientIp) {
-        // Bucket gui tach bucket verify: xin ma 5 lan thi bi throttle gui, nhung
-        // khong duoc tu khoa luon OTP vua nhan cua chinh minh.
+
         String accountKey = sendAccountKey(usernameOrEmail);
         String ipKey = sendIpKey(clientIp);
         loginAttemptService.checkBlocked(accountKey, maxAttempts);
@@ -91,12 +77,9 @@ public class OtpService {
         otp.setExpiresAt(LocalDateTime.now().plus(ttl));
         otpRepository.save(otp);
 
-        // Gui trong cung transaction: mail loi thi khong de lai OTP "mo coi" ma
-        // nguoi dung khong bao gio nhan duoc.
         mailClient.send(user.getEmail(), subject(purpose), body(code));
     }
 
-    /** Doi OTP lay user. Sai/het han/khong ton tai deu tra 401 cung mot message. */
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public User verify(String usernameOrEmail, OtpPurpose purpose, String code, String clientIp) {
         String accountKey = accountKey(usernameOrEmail);
@@ -133,7 +116,6 @@ public class OtpService {
                 .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)));
     }
 
-
     private String sha256(String value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
@@ -143,7 +125,6 @@ public class OtpService {
         }
     }
 
-    /** Bucket verify; sai ma se khoa dung bucket nay. */
     private String accountKey(String usernameOrEmail) {
         return "otp:" + usernameOrEmail.trim().toLowerCase(Locale.ROOT);
     }
@@ -152,7 +133,6 @@ public class OtpService {
         return "ip:" + clientIp;
     }
 
-    /** Bucket gui tach rieng de throttle spam ma khong chan buoc verify. */
     private String sendAccountKey(String usernameOrEmail) {
         return "otp-send:" + usernameOrEmail.trim().toLowerCase(Locale.ROOT);
     }

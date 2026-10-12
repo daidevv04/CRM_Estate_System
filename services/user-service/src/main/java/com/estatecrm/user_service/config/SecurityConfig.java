@@ -55,9 +55,7 @@ public class SecurityConfig {
         authorities.setAuthoritiesClaimName("role");
         authorities.setAuthorityPrefix("ROLE_");
         return jwt -> {
-            // Refresh token cung duoc ky bang JWT_SECRET nen chu ky hop le. Chi
-            // access token moi duoc dung lam bearer; chan tai day de khong phai
-            // tach decoder (AuthService van decode raw cho /auth/refresh).
+
             if (jwt.hasClaim("token_type")) {
                 throw new InvalidBearerTokenException("Refresh token is not a bearer token");
             }
@@ -73,10 +71,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // /error phai public: sendError() dispatch lai vao day, neu bi
-                        // chan thi moi loi chua xac thuc thanh 401 rong.
-                        // /auth/otp/send va /auth/2fa/verify phai public: nguoi dung
-                        // chua co token moi can chung.
+
                         .requestMatchers(
                                 "/auth/login", "/auth/refresh", "/auth/logout", "/auth/password-reset/**",
                                 "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",

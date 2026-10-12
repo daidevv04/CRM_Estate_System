@@ -15,10 +15,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Nhat ky cham soc khach hang. Quyen truy cap thua huong tu khach hang: moi
- * thao tac deu goi CustomerService.requireAccess truoc.
- */
 @Service
 public class CustomerCareService {
 
@@ -43,7 +39,6 @@ public class CustomerCareService {
         return CustomerCareResponse.from(customerCareRepository.save(care));
     }
 
-    /** Danh sach nhat ky cua khach, loc tuy chon theo type. */
     @Transactional(readOnly = true)
     public Page<CustomerCareResponse> list(
             UUID customerId, CareType type, UUID actorId, String role, Pageable pageable) {
@@ -53,10 +48,6 @@ public class CustomerCareService {
                 .map(CustomerCareResponse::from);
     }
 
-    /**
-     * Xoa nhat ky. Nem 404 neu khong ton tai hoac thuoc khach hang khac,
-     * thay vi im lang bo qua.
-     */
     @Transactional
     public void delete(UUID customerId, UUID careId, UUID actorId, String role) {
         customerService.requireAccess(customerId, actorId, role);

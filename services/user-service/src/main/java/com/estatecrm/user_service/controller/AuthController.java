@@ -57,7 +57,6 @@ public class AuthController {
         authService.logout(request);
     }
 
-    /** Reset password public flow: email -> OTP -> short-lived reset token -> new password. */
     @PostMapping("/password-reset/request")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void requestPasswordReset(@Valid @RequestBody PasswordResetRequest request, HttpServletRequest httpRequest) {
@@ -76,20 +75,12 @@ public class AuthController {
         authService.confirmPasswordReset(request);
     }
 
-    /**
-     * Gui OTP qua email. Luon 204 du tai khoan khong ton tai (khong do duoc
-     * tai khoan nao dang ky).
-     */
     @PostMapping("/otp/send")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void sendOtp(@Valid @RequestBody SendOtpRequest request, HttpServletRequest httpRequest) {
         otpService.send(request.usernameOrEmail(), request.purpose(), clientIp(httpRequest));
     }
 
-    /**
-     * Xac thuc OTP. purpose=LOGIN tra ve token (dang nhap bang OTP);
-     * purpose=RESET_PASSWORD dat mat khau moi va tra 204.
-     */
     @PostMapping("/otp/verify")
     public ResponseEntity<TokenResponse> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request, HttpServletRequest httpRequest) {
@@ -104,18 +95,12 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Buoc 2 cua dang nhap: doi code TOTP lay token. */
     @PostMapping("/2fa/verify")
     public TokenResponse verifyTwoFactor(
             @Valid @RequestBody TwoFactorVerifyRequest request, HttpServletRequest httpRequest) {
         return authService.verifyTwoFactor(request, clientIp(httpRequest));
     }
 
-    /**
-     * Bat 2FA. Schema khong co trang thai "cho xac nhan" (chk_users_2fa_secret
-     * bat buoc secret di kem co bat), nen secret duoc luu va bat ngay; client
-     * phai luu secret/QR truoc khi dang xuat.
-     */
     @PostMapping("/2fa/enable")
     public TwoFactorSetupResponse enableTwoFactor(
             @Valid @RequestBody EnableTwoFactorRequest request, @AuthenticationPrincipal Jwt jwt) {
@@ -129,14 +114,6 @@ public class AuthController {
         authService.disableTwoFactor(UUID.fromString(jwt.getSubject()), request);
     }
 
-    /**
-     * IP dung cho throttle. Gateway goi service qua mang noi bo nen
-     * getRemoteAddr() mac dinh la IP cua gateway, khong phai IP khach. Bat
-     * server.forward-headers-strategy=native de Tomcat tu doc X-Forwarded-For
-     * va tra ve IP khach, nhung chi khi request den tu proxy tin cay.
-     *
-     * Xem review_full_system_v2.md muc N1.
-     */
     private String clientIp(HttpServletRequest request) {
         return request.getRemoteAddr();
     }

@@ -21,11 +21,9 @@ public interface DealRepository extends JpaRepository<Deal, UUID>, JpaSpecificat
 
     boolean existsByLeadId(UUID leadId);
 
-    /** Serialize ghi payment tren cung mot deal de tong thu khong vuot contract_value. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Deal> findWithLockById(UUID dealId);
 
-    /** Loc dong cho GET /deals. Tham so null/rong = bo qua dieu kien do. */
     static Specification<Deal> filter(
             UUID leadId,
             UUID salesId,

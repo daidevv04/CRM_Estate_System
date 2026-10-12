@@ -44,11 +44,6 @@ public class RefreshToken {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Ca hai dung gio cua phien lam viec cua DB.
-     * Khong set o Java vi Java dung mui gio cua JVM, lech voi DB.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

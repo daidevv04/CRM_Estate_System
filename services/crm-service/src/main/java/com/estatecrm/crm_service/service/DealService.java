@@ -25,11 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Hop dong. SALES chi thay hop dong minh (salesId); ADMIN/MANAGER thay tat ca.
- * Duyet hop dong (APPROVED/REJECTED) chi ADMIN/MANAGER; khi APPROVED tu dien
- * approvedBy/approvedAt cho khop chk_deals_approved_fields.
- */
 @Service
 public class DealService {
 
@@ -44,11 +39,6 @@ public class DealService {
         this.leadRepository = leadRepository;
     }
 
-    /**
-     * Tao hop dong cho mot lead. Lead phai dat stage WON (muc 30 docs);
-     * 1 lead chi ra 1 hop dong; ma hop dong duy nhat; dat coc khong duoc lon
-     * hon gia tri hop dong (truoc khi nem ra DB).
-     */
     @Transactional
     public DealResponse create(CreateDealRequest request, UUID actorId, String role) {
         Lead lead = leadRepository.findById(request.leadId())
@@ -90,7 +80,6 @@ public class DealService {
         return DealResponse.from(dealRepository.save(deal));
     }
 
-    /** SALES bi ep salesId = chinh ho; ADMIN/MANAGER loc tuy chon. */
     @Transactional(readOnly = true)
     public Page<DealResponse> list(
             UUID leadId,
@@ -114,10 +103,6 @@ public class DealService {
         return DealResponse.from(requireAccess(dealId, actorId, role));
     }
 
-    /**
-     * Chinh sua hop dong. Doi ma/ nguoi ban/ duyet chi ADMIN/MANAGER; khi chuyen
-     * sang APPROVED tu ghi approvedBy/approvedAt.
-     */
     @Transactional
     public DealResponse update(
             UUID dealId, UpdateDealRequest request, UUID actorId, String role) {
@@ -141,7 +126,7 @@ public class DealService {
         if (request.depositAmount() != null) {
             deal.setDepositAmount(request.depositAmount());
         }
-        // Kiem tra sau khi da gop gia tri moi, truoc khi save.
+
         requireDepositWithinValue(deal.getDepositAmount(), deal.getContractValue());
         if (request.depositDate() != null) {
             deal.setDepositDate(request.depositDate());
@@ -184,7 +169,6 @@ public class DealService {
         return DealResponse.from(dealRepository.save(deal));
     }
 
-    /** Chi ADMIN/MANAGER duoc xoa hop dong (ho so tai chinh khong de chu so huu xoa). */
     @Transactional
     public void delete(UUID dealId, UUID actorId, String role) {
         if (!isPrivileged(role)) {
@@ -193,11 +177,6 @@ public class DealService {
         dealRepository.delete(find(dealId));
     }
 
-    /**
-     * Nap hop dong va chan truy cap neu khong phai sales phu trach va khong phai
-     * ADMIN/MANAGER. Dung chung cho ContactDetailService de quyen rieng chi
-     * nam mot cho (giong CustomerService.requireAccess).
-     */
     @Transactional(readOnly = true)
     public Deal requireAccess(UUID dealId, UUID actorId, String role) {
         Deal deal = find(dealId);
@@ -207,10 +186,6 @@ public class DealService {
         return deal;
     }
 
-    /**
-     * Dung cho giao dich tai chinh. PESSIMISTIC_WRITE khoa row deal cho den khi
-     * transaction commit, serialize total payment check + insert payment.
-     */
     @Transactional
     public Deal requireAccessForPayment(UUID dealId, UUID actorId, String role) {
         Deal deal = dealRepository.findWithLockById(dealId)
@@ -230,7 +205,6 @@ public class DealService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Contract not found"));
     }
 
-    /** chk_deals_deposit_within_value: dat coc <= gia tri hop dong khi ca hai co gia tri. */
     private void requireDepositWithinValue(BigDecimal deposit, BigDecimal value) {
         if (deposit != null && value != null && deposit.compareTo(value) > 0) {
             throw new ResponseStatusException(

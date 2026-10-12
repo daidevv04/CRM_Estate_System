@@ -17,7 +17,6 @@ public interface EmailTemplateRepository
 
     boolean existsByName(String name);
 
-    /** Loc dong cho GET /email-templates. Tham so null = bo qua dieu kien do. */
     static Specification<EmailTemplate> filter(
             EmailTemplateCategory category, EmailTemplateStatus status, String keyword) {
         return (root, query, cb) -> {

@@ -18,17 +18,10 @@ import org.springframework.data.repository.query.Param;
 public interface AppointmentRepository
         extends JpaRepository<Appointment, UUID>, JpaSpecificationExecutor<Appointment> {
 
-    /** UUID khong the trung voi ban ghi nao, dung khi tao moi lich hen. */
     UUID NO_APPOINTMENT = new UUID(0L, 0L);
 
-    /** Dem lich hen cua khach, de chan xoa khach khi con du lieu con. */
     long countByCustomerId(UUID customerId);
 
-    /**
-     * Loc dong cho GET /appointments. salesId duoc truyen tu service: SALES bi ep
-     * bang chinh ho, ADMIN/MANAGER truyen null de xem tat ca. from/to loc theo
-     * khoang giao nhau (lich nao cham vao khoang duoc chon).
-     */
     static Specification<Appointment> filter(
             UUID salesId,
             UUID customerId,
@@ -56,11 +49,6 @@ public interface AppointmentRepository
         };
     }
 
-    /**
-     * Dem so lich bi giao nhau cua mot sales: lich cu bat dau truoc khi lich
-     * moi ket thuc VA ket thuc sau khi lich moi bat dau. Bo qua lich da huy.
-     * Truyen NO_APPOINTMENT khi tao moi.
-     */
     @Query("""
             select count(a) from Appointment a
             where a.salesId = :salesId

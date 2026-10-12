@@ -17,12 +17,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * San pham bat dong san thuoc mot du an (can ho, dat, nha pho).
- * project_id la UUID tho thay vi @ManyToOne: giu entity phang nhu cac bang khac
- * cua he thong, tranh lazy-loading ngoai y muon.
- * Ma can (code) chi duy nhat trong pham vi mot du an.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -45,14 +39,12 @@ public class Product extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private ProductType type;
 
-    /** Dien tich, m2. numeric(10,2) nen dung BigDecimal chu khong phai double. */
     @Column(precision = 10, scale = 2)
     private BigDecimal area;
 
     @Column(length = 20)
     private String block;
 
-    /** Gia niem yet. numeric(15,2). */
     @Column(precision = 15, scale = 2)
     private BigDecimal price;
 

@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Dong san pham nam duoi /deals/{dealId}/items de khop route gateway /api/deals/**. */
 @RestController
 @RequestMapping("/deals/{dealId}/items")
 public class ContactDetailController {
@@ -64,12 +63,10 @@ public class ContactDetailController {
         contactDetailService.delete(dealId, itemId, actorId(jwt), role(jwt));
     }
 
-    /** Lay id nguoi dang nhap tu claim subject cua JWT da verify. */
     private UUID actorId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }
 
-    /** Lay vai tro tu claim "role" do user-service phat hanh. */
     private String role(Jwt jwt) {
         return jwt.getClaimAsString("role");
     }

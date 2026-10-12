@@ -20,11 +20,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Mot email da gui, luon gan voi mot nhat ky cham soc (customer_cares) de nam
- * trong dung dong thoi gian cua khach. subject/body duoc luu lai tai thoi diem
- * gui, khong lay dong tu template, de mau sua sau khong lam sai lich su.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -40,7 +35,6 @@ public class EmailCare {
     @JoinColumn(name = "customer_care_id", nullable = false)
     private CustomerCare customerCare;
 
-    /** Mau da dung, null neu soan tay. Xoa mau khong xoa lich su gui. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_id")
     private EmailTemplate template;
@@ -64,11 +58,6 @@ public class EmailCare {
     @Column(name = "opened_at")
     private LocalDateTime openedAt;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Khong set o Java: Java dung mui gio JVM con
-     * DB dung mui gio cua phien lam viec, hai ben lech nhau.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

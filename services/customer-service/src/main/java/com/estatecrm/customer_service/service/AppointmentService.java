@@ -19,12 +19,6 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * Lich hen voi khach hang.
- * ADMIN/MANAGER dat lich cho bat ky sales nao; SALES chi quan ly lich cua
- * chinh minh va chi tren khach hang minh phu trach. Mot sales khong the co
- * hai lich giao nhau ve thoi gian.
- */
 @Service
 public class AppointmentService {
 
@@ -37,10 +31,6 @@ public class AppointmentService {
         this.customerService = customerService;
     }
 
-    /**
-     * Dat lich hen. SALES luon bi ep salesId = chinh ho, khong dat ho duoc cho
-     * nguoi khac. Chan trung lich truoc khi luu.
-     */
     @Transactional
     public AppointmentResponse create(CreateAppointmentRequest request, UUID actorId, String role) {
         requireOrdered(request.startTime(), request.endTime());
@@ -65,10 +55,6 @@ public class AppointmentService {
         return AppointmentResponse.from(appointmentRepository.save(appointment));
     }
 
-    /**
-     * Danh sach lich hen co loc. SALES bi ep salesId = chinh ho; ADMIN/MANAGER
-     * tuy chon loc theo mot sales cu the. from/to loc lich giao voi khoang.
-     */
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> list(
             UUID actorId,
@@ -85,11 +71,6 @@ public class AppointmentService {
                 .map(AppointmentResponse::from);
     }
 
-    /**
-     * Lich hen cua mot khach. Pham vi giong list: SALES chi thay lich cua chinh
-     * minh, ADMIN/MANAGER thay het. Neu khong ep, SALES la chu khach se doc duoc
-     * lich cua sales khac dat tren khach do.
-     */
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> listByCustomer(
             UUID customerId, UUID actorId, String role, Pageable pageable) {
@@ -102,16 +83,11 @@ public class AppointmentService {
                 .map(AppointmentResponse::from);
     }
 
-    /** Lay 1 lich hen theo id. Chan neu khong thuoc quyen cua nguoi dang nhap. */
     @Transactional(readOnly = true)
     public AppointmentResponse get(UUID appointmentId, UUID actorId, String role) {
         return AppointmentResponse.from(requireAccess(appointmentId, actorId, role));
     }
 
-    /**
-     * Cap nhat mot phan lich hen. startTime/endTime phai di cung nhau de dam
-     * bao end > start. Chi kiem tra trung lich khi thoi gian hoac sales thay doi.
-     */
     @Transactional
     public AppointmentResponse update(
             UUID appointmentId, UpdateAppointmentRequest request, UUID actorId, String role) {
@@ -155,10 +131,6 @@ public class AppointmentService {
         appointmentRepository.delete(requireAccess(appointmentId, actorId, role));
     }
 
-    /**
-     * Nap lich hen va chan truy cap. Dung chung cho get/update/delete de quy tac
-     * so huu chi nam mot cho.
-     */
     private Appointment requireAccess(UUID appointmentId, UUID actorId, String role) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Appointment not found"));
@@ -168,24 +140,18 @@ public class AppointmentService {
         return appointment;
     }
 
-    /** Chan truong hop end_time <= start_time. */
     private void requireOrdered(LocalDateTime startTime, LocalDateTime endTime) {
         if (!endTime.isAfter(startTime)) {
             throw new ResponseStatusException(BAD_REQUEST, "endTime must be after startTime");
         }
     }
 
-    /**
-     * Lich hen la cuoc gap mat nen phai nam trong tuong lai. Khong the dat rang
-     * buoc CHECK o DB vi now() khong phai ham immutable, nen chan o day.
-     */
     private void requireFuture(LocalDateTime startTime) {
         if (startTime.isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(BAD_REQUEST, "startTime must be in the future");
         }
     }
 
-    /** Chan trung lich: dem lich giao nhau cua cung sales trong khoang thoi gian. */
     private void requireNoOverlap(
             UUID salesId, LocalDateTime startTime, LocalDateTime endTime, UUID excludeId) {
         if (appointmentRepository.countOverlapping(salesId, startTime, endTime, excludeId) > 0) {

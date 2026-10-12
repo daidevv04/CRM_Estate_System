@@ -14,10 +14,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface ProjectRepository
         extends JpaRepository<Project, UUID>, JpaSpecificationExecutor<Project> {
 
-    /**
-     * Loc dong cho GET /projects. Tham so null/rong = bo qua dieu kien do.
-     * keyword tim tren name, location, investor (khong phan biet hoa thuong).
-     */
     static Specification<Project> filter(ProjectStatus status, String investor, String keyword) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();

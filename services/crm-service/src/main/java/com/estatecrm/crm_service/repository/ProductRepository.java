@@ -20,10 +20,6 @@ public interface ProductRepository
 
     boolean existsByProjectIdAndCode(UUID projectId, String code);
 
-    /**
-     * Loc dong cho GET /products. Tham so null/rong = bo qua dieu kien do.
-     * keyword tim tren code va block; khoang gia la [minPrice, maxPrice].
-     */
     static Specification<Product> filter(
             UUID projectId,
             ProductType type,

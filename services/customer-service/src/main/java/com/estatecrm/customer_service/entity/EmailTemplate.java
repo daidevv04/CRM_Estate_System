@@ -18,10 +18,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Mau email tai su dung. subject/body la ban mau, cho phep giu placeholder
- * dang {{ten}} de dien luc gui.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -50,11 +46,6 @@ public class EmailTemplate {
     @Column(nullable = false, length = 20)
     private EmailTemplateStatus status = EmailTemplateStatus.ACTIVE;
 
-    /*
-     * Gia tri do DB sinh: DEFAULT CURRENT_TIMESTAMP khi insert, trigger
-     * set_updated_at khi update. Khong set o Java: Java dung mui gio JVM con
-     * DB dung mui gio cua phien lam viec, hai ben lech nhau.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

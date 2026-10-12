@@ -13,10 +13,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface CustomerCareRepository
         extends JpaRepository<CustomerCare, UUID>, JpaSpecificationExecutor<CustomerCare> {
 
-    /** Dem nhat ky cua khach, de chan xoa khach khi con du lieu con. */
     long countByCustomerId(UUID customerId);
 
-    /** Loc theo khach hang, type null = lay tat ca. */
     static Specification<CustomerCare> filter(UUID customerId, CareType type) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();

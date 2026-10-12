@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Cac dot thanh toan long duoi hop dong, append-only. */
 @RestController
 @RequestMapping("/deals/{dealId}/payments")
 public class DealPaymentController {

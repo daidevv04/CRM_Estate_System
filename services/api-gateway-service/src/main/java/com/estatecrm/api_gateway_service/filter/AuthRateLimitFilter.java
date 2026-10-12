@@ -16,14 +16,6 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
-/**
- * Hang rao som cho auth endpoint. Key dung remote IP gateway thay vi
- * X-Forwarded-For: gateway hien khong co trusted reverse-proxy allow-list, tin
- * header nay se cho attacker tu gia IP de bypass limit.
- *
- * ponytail: limiter chi in-memory, phu hop mot gateway instance. Chuyen sang
- * RedisRateLimiter truoc khi scale gateway qua mot replica.
- */
 @Component
 public class AuthRateLimitFilter implements WebFilter {
 
@@ -38,7 +30,6 @@ public class AuthRateLimitFilter implements WebFilter {
     private Duration window;
     private Clock clock;
 
-    /** Spring 7 component scan can khoi tao default constructor cho WebFilter. */
     public AuthRateLimitFilter() {
         this(20, Duration.ofMinutes(1), Clock.systemUTC());
     }
