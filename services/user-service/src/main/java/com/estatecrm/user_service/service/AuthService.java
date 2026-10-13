@@ -10,6 +10,7 @@ import com.estatecrm.user_service.dto.auth.RefreshTokenRequest;
 import com.estatecrm.user_service.dto.auth.TokenResponse;
 import com.estatecrm.user_service.dto.auth.TwoFactorSetupResponse;
 import com.estatecrm.user_service.dto.auth.TwoFactorVerifyRequest;
+import com.estatecrm.user_service.dto.auth.UserSessionResponse;
 import com.estatecrm.user_service.dto.auth.VerifyOtpRequest;
 import com.estatecrm.user_service.entity.RefreshToken;
 import com.estatecrm.user_service.entity.User;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -104,6 +106,11 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
+        return login(request, clientIp, null);
+    }
+
+    @Transactional
+    public TokenResponse login(LoginRequest request, String clientIp, String userAgent) {
         String identifier = request.usernameOrEmail().trim();
         String accountKey = "account:" + identifier.toLowerCase(Locale.ROOT);
         String ipKey = "ip:" + clientIp;
@@ -129,11 +136,16 @@ public class AuthService {
 
         loginAttemptService.reset(accountKey);
         loginAttemptService.reset(ipKey);
-        return issueTokens(user, Instant.now(), LocalDateTime.now());
+        return issueTokens(user, Instant.now(), LocalDateTime.now(), clientIp, parseDeviceName(userAgent));
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public TokenResponse refresh(RefreshTokenRequest request) {
+        return refresh(request, null, null);
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public TokenResponse refresh(RefreshTokenRequest request, String clientIp, String userAgent) {
         String refreshToken = request.refreshToken();
         Jwt jwt;
         try {
@@ -163,7 +175,15 @@ public class AuthService {
         if (!user.getId().toString().equals(jwt.getSubject()) || user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(FORBIDDEN, "User is not active");
         }
-        return issueTokens(user, now, databaseNow);
+
+        String deviceName = (userAgent != null && !userAgent.isBlank())
+                ? parseDeviceName(userAgent)
+                : (storedToken.getDeviceName() != null ? storedToken.getDeviceName() : "Thiết bị không xác định");
+        String ip = (clientIp != null && !clientIp.isBlank())
+                ? clientIp
+                : storedToken.getIpAddress();
+
+        return issueTokens(user, now, databaseNow, ip, deviceName);
     }
 
     @Transactional
@@ -171,19 +191,48 @@ public class AuthService {
         refreshTokenRepository.tryRevoke(sha256(request.refreshToken()), LocalDateTime.now());
     }
 
-    private TokenResponse issueTokens(User user, Instant now, LocalDateTime databaseNow) {
-        Instant accessExpiresAt = now.plus(accessTokenTtl);
-        String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
-                JwsHeader.with(MacAlgorithm.HS256).build(),
-                JwtClaimsSet.builder()
-                        .issuer("user-service")
-                        .issuedAt(now)
-                        .expiresAt(accessExpiresAt)
-                        .subject(user.getId().toString())
-                        .claim("username", user.getUsername())
-                        .claim("role", user.getRole().name())
-                        .build())).getTokenValue();
+    @Transactional(readOnly = true)
+    public List<UserSessionResponse> getActiveSessions(UUID userId, String currentSidStr) {
+        LocalDateTime now = LocalDateTime.now();
+        List<RefreshToken> tokens = refreshTokenRepository.findActiveByUserId(userId, now);
+        return tokens.stream().map(t -> new UserSessionResponse(
+                t.getId(),
+                t.getDeviceName() != null ? t.getDeviceName() : "Thiết bị không xác định",
+                t.getIpAddress(),
+                t.getCreatedAt(),
+                t.getLastUsedAt(),
+                currentSidStr != null && currentSidStr.equals(t.getId().toString())
+        )).toList();
+    }
 
+    @Transactional
+    public void revokeSession(UUID userId, UUID sessionId) {
+        int updated = refreshTokenRepository.revokeByIdAndUserId(sessionId, userId, LocalDateTime.now());
+        if (updated == 0) {
+            throw new ResponseStatusException(NOT_FOUND, "Session not found or already revoked");
+        }
+    }
+
+    @Transactional
+    public void revokeOtherSessions(UUID userId, String currentSidStr) {
+        LocalDateTime now = LocalDateTime.now();
+        if (currentSidStr != null && !currentSidStr.isBlank()) {
+            try {
+                UUID currentSid = UUID.fromString(currentSidStr);
+                refreshTokenRepository.revokeAllExcept(userId, currentSid, now);
+                return;
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        refreshTokenRepository.revokeAllForUser(userId, now);
+    }
+
+    private TokenResponse issueTokens(User user, Instant now, LocalDateTime databaseNow) {
+        return issueTokens(user, now, databaseNow, null, "Thiết bị không xác định");
+    }
+
+    private TokenResponse issueTokens(
+            User user, Instant now, LocalDateTime databaseNow, String ipAddress, String deviceName) {
         Instant refreshExpiresAt = now.plus(refreshTokenTtl);
         String refreshToken = jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(),
@@ -195,18 +244,83 @@ public class AuthService {
                         .id(UUID.randomUUID().toString())
                         .claim("token_type", "refresh")
                         .build())).getTokenValue();
+
         RefreshToken storedToken = new RefreshToken();
         storedToken.setUser(user);
         storedToken.setTokenHash(sha256(refreshToken));
         storedToken.setExpiresAt(databaseNow.plus(refreshTokenTtl));
-        refreshTokenRepository.save(storedToken);
+        storedToken.setIpAddress(ipAddress);
+        storedToken.setDeviceName(deviceName);
+        storedToken.setLastUsedAt(databaseNow);
+        storedToken = refreshTokenRepository.save(storedToken);
+
+        Instant accessExpiresAt = now.plus(accessTokenTtl);
+        String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(),
+                JwtClaimsSet.builder()
+                        .issuer("user-service")
+                        .issuedAt(now)
+                        .expiresAt(accessExpiresAt)
+                        .subject(user.getId().toString())
+                        .claim("sid", storedToken.getId().toString())
+                        .claim("username", user.getUsername())
+                        .claim("role", user.getRole().name())
+                        .build())).getTokenValue();
 
         return new TokenResponse(
                 accessToken, refreshToken, "Bearer", accessTokenTtl.toSeconds());
     }
 
+    public static String parseDeviceName(String userAgent) {
+        if (userAgent == null || userAgent.isBlank()) {
+            return "Thiết bị không xác định";
+        }
+        String uaLower = userAgent.toLowerCase(Locale.ROOT);
+        if (uaLower.contains("postman")) {
+            return "Postman";
+        }
+        if (uaLower.contains("curl")) {
+            return "cURL";
+        }
+
+        String os = "Thiết bị khác";
+        if (uaLower.contains("windows")) {
+            os = "Windows";
+        } else if (uaLower.contains("iphone")) {
+            os = "iPhone";
+        } else if (uaLower.contains("ipad")) {
+            os = "iPad";
+        } else if (uaLower.contains("android")) {
+            os = "Android";
+        } else if (uaLower.contains("macintosh") || uaLower.contains("mac os")) {
+            os = "macOS";
+        } else if (uaLower.contains("linux")) {
+            os = "Linux";
+        }
+
+        String browser = "Browser";
+        if (userAgent.contains("Edg/")) {
+            browser = "Edge";
+        } else if (userAgent.contains("Chrome/") && !userAgent.contains("Edg/")) {
+            browser = "Chrome";
+        } else if (userAgent.contains("Safari/") && !userAgent.contains("Chrome/")) {
+            browser = "Safari";
+        } else if (userAgent.contains("Firefox/")) {
+            browser = "Firefox";
+        } else if (userAgent.contains("OPR/") || userAgent.contains("Opera/")) {
+            browser = "Opera";
+        }
+
+        return browser + " (" + os + ")";
+    }
+
     @Transactional
     public TokenResponse verifyTwoFactor(TwoFactorVerifyRequest request, String clientIp) {
+        return verifyTwoFactor(request, clientIp, null);
+    }
+
+    @Transactional
+    public TokenResponse verifyTwoFactor(TwoFactorVerifyRequest request, String clientIp, String userAgent) {
         String identifier = request.usernameOrEmail().trim();
         String accountKey = "account:" + identifier.toLowerCase(Locale.ROOT);
         String ipKey = "ip:" + clientIp;
@@ -220,7 +334,7 @@ public class AuthService {
         requireSecondFactor(user, request.code(), accountKey, ipKey);
         loginAttemptService.reset(accountKey);
         loginAttemptService.reset(ipKey);
-        return issueTokens(user, Instant.now(), LocalDateTime.now());
+        return issueTokens(user, Instant.now(), LocalDateTime.now(), clientIp, parseDeviceName(userAgent));
     }
 
     @Transactional
@@ -248,8 +362,13 @@ public class AuthService {
 
     @Transactional
     public TokenResponse verifyOtpLogin(VerifyOtpRequest request, String clientIp) {
+        return verifyOtpLogin(request, clientIp, null);
+    }
+
+    @Transactional
+    public TokenResponse verifyOtpLogin(VerifyOtpRequest request, String clientIp, String userAgent) {
         User user = otpService.verify(request.usernameOrEmail(), request.purpose(), request.code(), clientIp);
-        return issueTokens(user, Instant.now(), LocalDateTime.now());
+        return issueTokens(user, Instant.now(), LocalDateTime.now(), clientIp, parseDeviceName(userAgent));
     }
 
     @Transactional

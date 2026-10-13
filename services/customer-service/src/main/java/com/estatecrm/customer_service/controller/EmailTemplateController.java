@@ -47,7 +47,7 @@ public class EmailTemplateController {
             @RequestParam(required = false) EmailTemplateCategory category,
             @RequestParam(required = false) EmailTemplateStatus status,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return emailTemplateService.list(category, status, keyword, pageable);
     }
 

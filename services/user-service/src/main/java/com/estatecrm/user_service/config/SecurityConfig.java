@@ -3,6 +3,8 @@ package com.estatecrm.user_service.config;
 import java.util.Base64;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.http.HttpMethod;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -77,6 +79,7 @@ public class SecurityConfig {
                                 "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",
                                 "/actuator/health", "/error")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users").authenticated()
                         .requestMatchers("/users/me/**").authenticated()
                         .requestMatchers("/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

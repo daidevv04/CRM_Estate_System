@@ -49,7 +49,7 @@ public class CustomerController {
             @RequestParam(required = false) DemandType demandType,
             @RequestParam(required = false) String source,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return customerService.list(
                 actorId(jwt), role(jwt), ownerId, status, demandType, source, keyword, pageable);
     }

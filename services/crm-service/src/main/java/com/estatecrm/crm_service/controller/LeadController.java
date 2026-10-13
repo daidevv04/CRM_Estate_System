@@ -52,7 +52,7 @@ public class LeadController {
             @RequestParam(required = false) UUID assignedTo,
             @RequestParam(required = false) LeadStage stage,
             @RequestParam(required = false) LocalDate closeDate,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return leadService.list(
                 customerId, productId, assignedTo, stage, closeDate,
                 actorId(jwt), role(jwt), pageable);

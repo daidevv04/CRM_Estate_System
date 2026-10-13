@@ -65,6 +65,10 @@ public class NotificationService {
     @Transactional
     public NotificationResponse create(CreateNotificationRequest request, UUID actorId, String role) {
         UUID targetUserId = request.userId() != null ? request.userId() : actorId;
+        if (!targetUserId.equals(actorId) && !"ADMIN".equals(role) && !"MANAGER".equals(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only ADMIN/MANAGER can create notifications for other users");
+        }
         if (!userRepository.existsById(targetUserId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found");
         }

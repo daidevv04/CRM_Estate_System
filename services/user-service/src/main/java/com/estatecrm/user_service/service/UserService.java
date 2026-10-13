@@ -76,18 +76,14 @@ public class UserService {
     @Transactional
     public UserResponse updateProfile(UUID userId, UpdateUserProfileRequest request, UUID adminId) {
         User user = find(userId);
-        if (request.email() == null) {
-            user.setEmail(null);
-        } else {
+        if (request.email() != null) {
             String email = normalizeEmail(request.email());
             if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
                 throw new ConflictException("Email already exists");
             }
             user.setEmail(email);
         }
-        if (request.phone() == null) {
-            user.setPhone(null);
-        } else {
+        if (request.phone() != null) {
             if (!request.phone().equals(user.getPhone()) && userRepository.existsByPhone(request.phone())) {
                 throw new ConflictException("Phone already exists");
             }
@@ -96,7 +92,9 @@ public class UserService {
         if (request.fullName() != null) {
             user.setFullName(request.fullName());
         }
-        user.setAddress(request.address());
+        if (request.address() != null) {
+            user.setAddress(request.address());
+        }
         user.setUpdatedBy(userRepository.getReferenceById(adminId));
         return UserResponse.from(userRepository.save(user));
     }

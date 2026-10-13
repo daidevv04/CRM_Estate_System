@@ -49,7 +49,7 @@ public class ProjectController {
             @RequestParam(required = false) ProjectStatus status,
             @RequestParam(required = false) String investor,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return projectService.list(status, investor, keyword, pageable);
     }
 

@@ -36,7 +36,7 @@ public class NotificationController {
     @GetMapping
     public Page<NotificationResponse> list(
             @RequestParam(required = false) Boolean unreadOnly,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Jwt jwt) {
         return notificationService.list(actorId(jwt), unreadOnly, pageable);
     }

@@ -51,7 +51,7 @@ public class DealController {
             @RequestParam(required = false) DealStatus status,
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) ApprovalStatus approvalStatus,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return dealService.list(
                 leadId, salesId, status, paymentStatus, approvalStatus,
                 actorId(jwt), role(jwt), pageable);
