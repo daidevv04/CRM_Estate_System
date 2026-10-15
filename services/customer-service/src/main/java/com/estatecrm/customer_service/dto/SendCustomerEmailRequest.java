@@ -9,5 +9,15 @@ public record SendCustomerEmailRequest(
         @Email @Size(max = 100) String toEmail,
         @Size(max = 255) String subject,
         @Size(max = 20000) String body,
-        @Size(max = 500) String note) {
+        @Size(max = 500) String note,
+        @Email @Size(max = 100) String senderEmail,
+        @Size(max = 100) String senderName) {
+    public SendCustomerEmailRequest(
+            UUID templateId,
+            String toEmail,
+            String subject,
+            String body,
+            String note) {
+        this(templateId, toEmail, subject, body, note, null, null);
+    }
 }

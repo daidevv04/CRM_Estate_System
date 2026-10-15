@@ -3,6 +3,8 @@ package com.estatecrm.customer_service.service;
 import com.estatecrm.customer_service.dto.mail.SendMailRequest;
 import java.time.Duration;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class MailClient {
 
+    private static final Logger log = LoggerFactory.getLogger(MailClient.class);
     private static final Duration TOKEN_TTL = Duration.ofMinutes(1);
 
     private final RestClient restClient;
@@ -31,16 +34,21 @@ public class MailClient {
     }
 
     public void send(String to, String subject, String body) {
+        send(to, subject, body, null, null, null);
+    }
+
+    public void send(String to, String subject, String body, String html, String replyTo, String senderName) {
         try {
             restClient.post()
                     .uri("/emails")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalToken())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new SendMailRequest(to, subject, body))
+                    .body(new SendMailRequest(to, subject, body, html, replyTo, senderName))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Mail service unavailable");
+            log.warn("Gọi mail-service thất bại: {}", exception.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Dịch vụ gửi mail không phản hồi: " + exception.getMessage());
         }
     }
 

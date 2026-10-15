@@ -7,5 +7,11 @@ import jakarta.validation.constraints.Size;
 public record SendMailRequest(
         @NotBlank @Email @Size(max = 100) String to,
         @NotBlank @Size(max = 255) String subject,
-        @NotBlank String body) {
+        @NotBlank String body,
+        String html,
+        String replyTo,
+        String senderName) {
+    public SendMailRequest(String to, String subject, String body) {
+        this(to, subject, body, null, null, null);
+    }
 }

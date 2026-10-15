@@ -15,18 +15,23 @@ import com.estatecrm.customer_service.repository.EmailCareRepository;
 import com.estatecrm.customer_service.repository.EmailTemplateRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import static org.springframework.http.HttpStatus.BAD_GATEWAY;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class EmailCareService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailCareService.class);
 
     private final EmailCareRepository emailCareRepository;
     private final EmailTemplateRepository emailTemplateRepository;
@@ -138,13 +143,17 @@ public class EmailCareService {
         careMail.setCreatedBy(actorId);
 
         try {
-            mailClient.send(toEmail, subject, body);
+            mailClient.send(toEmail, subject, body, body, request.senderEmail(), request.senderName());
             careMail.setSentAt(LocalDateTime.now());
+            careMail.setStatus(EmailCareStatus.SENT);
+            return EmailCareResponse.from(emailCareRepository.save(careMail));
         } catch (Exception e) {
+            log.error("Lỗi gửi email chăm sóc tới {}: {}", toEmail, e.getMessage(), e);
             careMail.setStatus(EmailCareStatus.FAILED);
+            emailCareRepository.save(careMail);
+            throw new ResponseStatusException(
+                    BAD_GATEWAY, "Gửi email tới " + toEmail + " thất bại. " + (e.getMessage() != null ? e.getMessage() : "Vui lòng kiểm tra dịch vụ mail."));
         }
-
-        return EmailCareResponse.from(emailCareRepository.save(careMail));
     }
 
     @Transactional(readOnly = true)
