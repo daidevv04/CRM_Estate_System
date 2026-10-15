@@ -2,10 +2,13 @@ package com.estatecrm.customer_service.service;
 
 import com.estatecrm.customer_service.dto.CreateEmailCareRequest;
 import com.estatecrm.customer_service.dto.EmailCareResponse;
+import com.estatecrm.customer_service.dto.SendCustomerEmailRequest;
 import com.estatecrm.customer_service.dto.UpdateEmailCareRequest;
+import com.estatecrm.customer_service.entity.Customer;
 import com.estatecrm.customer_service.entity.CustomerCare;
 import com.estatecrm.customer_service.entity.EmailCare;
 import com.estatecrm.customer_service.entity.EmailTemplate;
+import com.estatecrm.customer_service.enums.CareType;
 import com.estatecrm.customer_service.enums.EmailCareStatus;
 import com.estatecrm.customer_service.repository.CustomerCareRepository;
 import com.estatecrm.customer_service.repository.EmailCareRepository;
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
@@ -77,6 +81,69 @@ public class EmailCareService {
             careMail.setSentAt(LocalDateTime.now());
         }
         careMail.setCreatedBy(actorId);
+        return EmailCareResponse.from(emailCareRepository.save(careMail));
+    }
+
+    @Transactional
+    public EmailCareResponse sendToCustomer(
+            UUID customerId, SendCustomerEmailRequest request, UUID actorId, String role) {
+        if (!"MANAGER".equals(role) && !"SALES".equals(role)) {
+            throw new ResponseStatusException(
+                    FORBIDDEN, "Chỉ Manager hoặc Sales mới có quyền gửi email chăm sóc khách hàng");
+        }
+
+        Customer customer = customerService.requireAccess(customerId, actorId, role);
+        String toEmail = request.toEmail() != null && !request.toEmail().isBlank()
+                ? request.toEmail().trim()
+                : customer.getEmail();
+        if (toEmail == null || toEmail.isBlank()) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST, "Khách hàng chưa có địa chỉ email để gửi");
+        }
+
+        EmailTemplate template = null;
+        if (request.templateId() != null) {
+            template = emailTemplateRepository.findById(request.templateId())
+                    .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Email template not found"));
+        }
+
+        String subject = request.subject() != null && !request.subject().isBlank()
+                ? request.subject()
+                : template == null ? null : template.getSubject();
+        String body = request.body() != null && !request.body().isBlank()
+                ? request.body()
+                : template == null ? null : template.getBody();
+        if (subject == null || body == null) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST, "Tiêu đề và nội dung email không được để trống");
+        }
+
+        CustomerCare care = new CustomerCare();
+        care.setCustomer(customer);
+        care.setType(CareType.EMAIL);
+        String careContent = (request.note() != null && !request.note().isBlank())
+                ? request.note()
+                : "[Gửi email chăm sóc] Tiêu đề: " + subject;
+        care.setContent(careContent);
+        care.setCreatedBy(actorId);
+        care = customerCareRepository.save(care);
+
+        EmailCare careMail = new EmailCare();
+        careMail.setCustomerCare(care);
+        careMail.setTemplate(template);
+        careMail.setToEmail(toEmail);
+        careMail.setSubject(subject);
+        careMail.setBody(body);
+        careMail.setStatus(EmailCareStatus.SENT);
+        careMail.setCreatedBy(actorId);
+
+        try {
+            mailClient.send(toEmail, subject, body);
+            careMail.setSentAt(LocalDateTime.now());
+        } catch (Exception e) {
+            careMail.setStatus(EmailCareStatus.FAILED);
+        }
+
         return EmailCareResponse.from(emailCareRepository.save(careMail));
     }
 

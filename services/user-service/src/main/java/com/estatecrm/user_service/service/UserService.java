@@ -82,19 +82,21 @@ public class UserService {
                 throw new ConflictException("Email already exists");
             }
             user.setEmail(email);
+        } else {
+            user.setEmail(null);
         }
         if (request.phone() != null) {
             if (!request.phone().equals(user.getPhone()) && userRepository.existsByPhone(request.phone())) {
                 throw new ConflictException("Phone already exists");
             }
             user.setPhone(request.phone());
+        } else {
+            user.setPhone(null);
         }
         if (request.fullName() != null) {
             user.setFullName(request.fullName());
         }
-        if (request.address() != null) {
-            user.setAddress(request.address());
-        }
+        user.setAddress(request.address());
         user.setUpdatedBy(userRepository.getReferenceById(adminId));
         return UserResponse.from(userRepository.save(user));
     }

@@ -37,7 +37,7 @@ public class EmailTemplateService {
         template.setName(request.name());
         template.setSubject(request.subject());
         template.setBody(request.body());
-        template.setCategory(request.category());
+        template.setCategory(request.category()); 
         template.setStatus(request.status() == null ? EmailTemplateStatus.ACTIVE : request.status());
         template.setCreatedBy(actorId);
         return EmailTemplateResponse.from(emailTemplateRepository.save(template));
@@ -100,10 +100,10 @@ public class EmailTemplateService {
     }
 
     private void requirePrivileged(String role) {
-        if (!"ADMIN".equals(role) && !"MANAGER".equals(role)) {
+        if (!"ADMIN".equals(role)) {
             throw new ResponseStatusException(
                     org.springframework.http.HttpStatus.FORBIDDEN,
-                    "Only ADMIN or MANAGER can manage email templates");
+                    "Chỉ ADMIN mới có quyền tạo và quản lý mẫu email");
         }
     }
 }
