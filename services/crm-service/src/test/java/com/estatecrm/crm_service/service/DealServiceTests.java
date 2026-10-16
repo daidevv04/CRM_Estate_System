@@ -17,6 +17,7 @@ import com.estatecrm.crm_service.enums.LeadStage;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
+import com.estatecrm.crm_service.repository.ProductRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,12 @@ class DealServiceTests {
 
     @Mock
     private LeadRepository leadRepository;
+
+    @Mock
+    private ProductRepository productRepository;
+
+    @Mock
+    private ProjectAssignmentService projectAssignmentService;
 
     @InjectMocks
     private DealService dealService;
@@ -129,7 +136,19 @@ class DealServiceTests {
         deal.setLeadId(LEAD_ID);
         deal.setSalesId(UUID.randomUUID());
         deal.setContractCode("HD-05");
+
+        Lead lead = wonLead();
+        UUID productId = UUID.randomUUID();
+        lead.setProductId(productId);
+        com.estatecrm.crm_service.entity.Product product = new com.estatecrm.crm_service.entity.Product();
+        UUID projectId = UUID.randomUUID();
+        product.setId(productId);
+        product.setProjectId(projectId);
+
         when(dealRepository.findById(deal.getId())).thenReturn(Optional.of(deal));
+        when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(lead));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(projectAssignmentService.isAssignedToProject(ACTOR, projectId)).thenReturn(true);
         when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         DealResponse response = dealService.update(

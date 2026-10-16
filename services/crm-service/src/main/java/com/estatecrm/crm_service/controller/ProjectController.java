@@ -32,9 +32,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final com.estatecrm.crm_service.service.ProjectAssignmentService projectAssignmentService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(
+            ProjectService projectService,
+            com.estatecrm.crm_service.service.ProjectAssignmentService projectAssignmentService) {
         this.projectService = projectService;
+        this.projectAssignmentService = projectAssignmentService;
     }
 
     @PostMapping
@@ -49,13 +53,57 @@ public class ProjectController {
             @RequestParam(required = false) ProjectStatus status,
             @RequestParam(required = false) String investor,
             @RequestParam(required = false) String keyword,
+            @AuthenticationPrincipal Jwt jwt,
             @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
-        return projectService.list(status, investor, keyword, pageable);
+        UUID actorId = jwt != null ? actorId(jwt) : null;
+        String role = jwt != null ? role(jwt) : null;
+        return projectService.list(status, investor, keyword, actorId, role, pageable);
+    }
+
+    @GetMapping("/my-assigned-ids")
+    public java.util.List<UUID> getMyAssignedProjectIds(@AuthenticationPrincipal Jwt jwt) {
+        return projectAssignmentService.getAssignedProjectIds(actorId(jwt));
+    }
+
+    @GetMapping("/my-managed-user-ids")
+    public java.util.List<UUID> getMyManagedUserIds(@AuthenticationPrincipal Jwt jwt) {
+        return projectAssignmentService.getManagedUserIds(actorId(jwt));
+    }
+
+    @GetMapping("/internal/managed-user-ids/{managerId}")
+    public java.util.List<UUID> getManagedUserIds(@PathVariable UUID managerId) {
+        return projectAssignmentService.getManagedUserIds(managerId);
+    }
+
+    @GetMapping("/{projectId}/members")
+    public java.util.List<com.estatecrm.crm_service.dto.ProjectMemberResponse> getMembers(
+            @PathVariable UUID projectId) {
+        return projectAssignmentService.getProjectMembers(projectId);
+    }
+
+    @PostMapping("/{projectId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
+    public com.estatecrm.crm_service.dto.ProjectMemberResponse assignMember(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody com.estatecrm.crm_service.dto.AssignProjectMemberRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return projectAssignmentService.assignMember(projectId, request, actorId(jwt), role(jwt));
+    }
+
+    @DeleteMapping("/{projectId}/members/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(
+            @PathVariable UUID projectId,
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal Jwt jwt) {
+        projectAssignmentService.removeMember(projectId, userId, actorId(jwt), role(jwt));
     }
 
     @GetMapping("/{projectId}")
-    public ProjectResponse get(@PathVariable UUID projectId) {
-        return projectService.get(projectId);
+    public ProjectResponse get(@PathVariable UUID projectId, @AuthenticationPrincipal Jwt jwt) {
+        UUID actorId = jwt != null ? actorId(jwt) : null;
+        String role = jwt != null ? role(jwt) : null;
+        return projectService.get(projectId, actorId, role);
     }
 
     @PatchMapping("/{projectId}")

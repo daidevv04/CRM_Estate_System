@@ -37,25 +37,25 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@Valid @RequestBody CreateUserRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return userService.create(request, adminId(jwt));
+        return userService.create(request, actorId(jwt), actorRole(jwt));
     }
 
     @GetMapping
-    public List<UserResponse> list() {
-        return userService.list();
+    public List<UserResponse> list(@AuthenticationPrincipal Jwt jwt) {
+        return userService.list(actorId(jwt), actorRole(jwt));
     }
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return userService.get(UUID.fromString(jwt.getSubject()));
+        return userService.get(actorId(jwt));
     }
 
     @PatchMapping("/me/profile")
     public UserResponse updateMyProfile(
             @Valid @RequestBody UpdateUserProfileRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        UUID userId = UUID.fromString(jwt.getSubject());
-        return userService.updateProfile(userId, request, userId);
+        UUID userId = actorId(jwt);
+        return userService.updateProfile(userId, request, userId, actorRole(jwt));
     }
 
     @PostMapping("/me/change-password")
@@ -63,12 +63,12 @@ public class UserController {
     public void changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        userService.changeOwnPassword(UUID.fromString(jwt.getSubject()), request);
+        userService.changeOwnPassword(actorId(jwt), request);
     }
 
     @GetMapping("/{userId}")
-    public UserResponse get(@PathVariable UUID userId) {
-        return userService.get(userId);
+    public UserResponse get(@PathVariable UUID userId, @AuthenticationPrincipal Jwt jwt) {
+        return userService.get(userId, actorId(jwt), actorRole(jwt));
     }
 
     @PatchMapping("/{userId}/profile")
@@ -76,7 +76,7 @@ public class UserController {
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserProfileRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return userService.updateProfile(userId, request, adminId(jwt));
+        return userService.updateProfile(userId, request, actorId(jwt), actorRole(jwt));
     }
 
     @PatchMapping("/{userId}/role")
@@ -84,7 +84,7 @@ public class UserController {
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserRoleRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return userService.updateRole(userId, request, adminId(jwt));
+        return userService.updateRole(userId, request, actorId(jwt), actorRole(jwt));
     }
 
     @PatchMapping("/{userId}/status")
@@ -92,7 +92,7 @@ public class UserController {
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return userService.updateStatus(userId, request, adminId(jwt));
+        return userService.updateStatus(userId, request, actorId(jwt), actorRole(jwt));
     }
 
     @PostMapping("/{userId}/reset-password")
@@ -101,22 +101,30 @@ public class UserController {
             @PathVariable UUID userId,
             @Valid @RequestBody ResetPasswordRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        userService.resetPassword(userId, request, adminId(jwt));
+        userService.resetPassword(userId, request, actorId(jwt), actorRole(jwt));
     }
 
     @PostMapping("/{userId}/revoke-tokens")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeTokens(@PathVariable UUID userId, @AuthenticationPrincipal Jwt jwt) {
-        userService.revokeTokens(userId, adminId(jwt));
+        userService.revokeTokens(userId, actorId(jwt));
     }
 
     @DeleteMapping("/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID userId, @AuthenticationPrincipal Jwt jwt) {
-        userService.delete(userId, adminId(jwt));
+        userService.delete(userId, actorId(jwt), actorRole(jwt));
     }
 
-    private UUID adminId(Jwt jwt) {
+    private UUID actorId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
+    }
+
+    private String actorRole(Jwt jwt) {
+        String role = jwt.getClaimAsString("role");
+        if (role != null && !role.isBlank()) {
+            return role;
+        }
+        return "SALES";
     }
 }

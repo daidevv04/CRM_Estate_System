@@ -21,8 +21,21 @@ public interface CustomerRepository
 
     static Specification<Customer> filter(
             UUID ownerId, CustomerStatus status, DemandType demandType, String source, String keyword) {
+        return filter(ownerId, null, status, demandType, source, keyword);
+    }
+
+    static Specification<Customer> filter(
+            UUID ownerId,
+            java.util.Collection<UUID> allowedOwnerIds,
+            CustomerStatus status,
+            DemandType demandType,
+            String source,
+            String keyword) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedOwnerIds != null) {
+                conditions.add(root.get("ownerId").in(allowedOwnerIds));
+            }
             if (ownerId != null) {
                 conditions.add(cb.equal(root.get("ownerId"), ownerId));
             }

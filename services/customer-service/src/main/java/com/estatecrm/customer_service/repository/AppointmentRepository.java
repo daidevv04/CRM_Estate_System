@@ -28,8 +28,21 @@ public interface AppointmentRepository
             AppointmentStatus status,
             LocalDateTime from,
             LocalDateTime to) {
+        return filter(salesId, null, customerId, status, from, to);
+    }
+
+    static Specification<Appointment> filter(
+            UUID salesId,
+            java.util.Collection<UUID> allowedSalesIds,
+            UUID customerId,
+            AppointmentStatus status,
+            LocalDateTime from,
+            LocalDateTime to) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedSalesIds != null) {
+                conditions.add(root.get("salesId").in(allowedSalesIds));
+            }
             if (salesId != null) {
                 conditions.add(cb.equal(root.get("salesId"), salesId));
             }

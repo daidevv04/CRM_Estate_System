@@ -15,8 +15,19 @@ public interface ProjectRepository
         extends JpaRepository<Project, UUID>, JpaSpecificationExecutor<Project> {
 
     static Specification<Project> filter(ProjectStatus status, String investor, String keyword) {
+        return filter(status, investor, keyword, null);
+    }
+
+    static Specification<Project> filter(
+            ProjectStatus status, String investor, String keyword, List<UUID> allowedProjectIds) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedProjectIds != null) {
+                if (allowedProjectIds.isEmpty()) {
+                    return cb.disjunction();
+                }
+                conditions.add(root.get("id").in(allowedProjectIds));
+            }
             if (status != null) {
                 conditions.add(cb.equal(root.get("status"), status));
             }

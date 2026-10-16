@@ -20,6 +20,12 @@ public interface ProductRepository
 
     boolean existsByProjectIdAndCode(UUID projectId, String code);
 
+    @org.springframework.data.jpa.repository.Query("SELECT p.id FROM Product p WHERE p.projectId IN :projectIds")
+    List<UUID> findIdsByProjectIdIn(@org.springframework.data.repository.query.Param("projectIds") java.util.Collection<UUID> projectIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p.id FROM Product p WHERE p.projectId = :projectId")
+    List<UUID> findIdsByProjectId(@org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
     static Specification<Product> filter(
             UUID projectId,
             ProductType type,
@@ -28,8 +34,23 @@ public interface ProductRepository
             BigDecimal minPrice,
             BigDecimal maxPrice,
             String keyword) {
+        return filter(projectId, type, status, block, minPrice, maxPrice, keyword, null);
+    }
+
+    static Specification<Product> filter(
+            UUID projectId,
+            ProductType type,
+            ProductStatus status,
+            String block,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            String keyword,
+            java.util.Collection<UUID> allowedProjectIds) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedProjectIds != null) {
+                conditions.add(root.get("projectId").in(allowedProjectIds));
+            }
             if (projectId != null) {
                 conditions.add(cb.equal(root.get("projectId"), projectId));
             }

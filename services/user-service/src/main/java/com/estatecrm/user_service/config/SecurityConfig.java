@@ -19,6 +19,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
@@ -66,25 +68,49 @@ public class SecurityConfig {
     }
 
     @Bean
+    BearerTokenResolver bearerTokenResolver() {
+        return request -> {
+            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+            if (header != null && header.startsWith("Bearer ")) {
+                return header.substring(7);
+            }
+            String param = request.getParameter("token");
+            if (param != null && !param.isBlank()) {
+                return param;
+            }
+            return request.getParameter("access_token");
+        };
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter) throws Exception {
+            Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter,
+            BearerTokenResolver bearerTokenResolver) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-
                         .requestMatchers(
                                 "/auth/login", "/auth/refresh", "/auth/logout", "/auth/password-reset/**",
                                 "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",
                                 "/actuator/health", "/error")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/users").authenticated()
                         .requestMatchers("/users/me/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/users").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/users/*").authenticated()
+                        .requestMatchers("/users/*/role").hasRole("ADMIN")
+                        .requestMatchers("/users/*/revoke-tokens").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/users").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/users/*/profile").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/users/*/status").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/users/*/reset-password").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/users/*").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter)))
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .bearerTokenResolver(bearerTokenResolver)
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
                 .build();
     }
 }

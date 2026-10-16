@@ -2,8 +2,11 @@ package com.estatecrm.user_service.controller;
 
 import com.estatecrm.user_service.dto.notification.CreateNotificationRequest;
 import com.estatecrm.user_service.dto.notification.NotificationResponse;
+import com.estatecrm.user_service.dto.notification.PublishEventRequest;
 import com.estatecrm.user_service.service.NotificationService;
+import com.estatecrm.user_service.service.NotificationSseService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -28,9 +31,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationSseService notificationSseService;
 
-    public NotificationController(NotificationService notificationService) {
+    public NotificationController(
+            NotificationService notificationService,
+            NotificationSseService notificationSseService) {
         this.notificationService = notificationService;
+        this.notificationSseService = notificationSseService;
+    }
+
+    @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(
+            @AuthenticationPrincipal Jwt jwt) {
+        return notificationSseService.subscribe(actorId(jwt));
     }
 
     @GetMapping
@@ -65,6 +78,14 @@ public class NotificationController {
             @Valid @RequestBody CreateNotificationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         return notificationService.create(request, actorId(jwt), role(jwt));
+    }
+
+    @PostMapping("/events")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<NotificationResponse> publishEvent(
+            @Valid @RequestBody PublishEventRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return notificationService.publishEvent(request, actorId(jwt));
     }
 
     @DeleteMapping("/{id}")

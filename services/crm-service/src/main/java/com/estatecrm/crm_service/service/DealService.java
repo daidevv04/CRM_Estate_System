@@ -5,6 +5,7 @@ import com.estatecrm.crm_service.dto.DealResponse;
 import com.estatecrm.crm_service.dto.UpdateDealRequest;
 import com.estatecrm.crm_service.entity.Deal;
 import com.estatecrm.crm_service.entity.Lead;
+import com.estatecrm.crm_service.entity.Product;
 import com.estatecrm.crm_service.enums.ApprovalStatus;
 import com.estatecrm.crm_service.enums.DealStatus;
 import com.estatecrm.crm_service.enums.LeadStage;
@@ -12,8 +13,10 @@ import com.estatecrm.crm_service.enums.PaymentStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
+import com.estatecrm.crm_service.repository.ProductRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,10 +36,18 @@ public class DealService {
 
     private final DealRepository dealRepository;
     private final LeadRepository leadRepository;
+    private final ProductRepository productRepository;
+    private final ProjectAssignmentService projectAssignmentService;
 
-    public DealService(DealRepository dealRepository, LeadRepository leadRepository) {
+    public DealService(
+            DealRepository dealRepository,
+            LeadRepository leadRepository,
+            ProductRepository productRepository,
+            ProjectAssignmentService projectAssignmentService) {
         this.dealRepository = dealRepository;
         this.leadRepository = leadRepository;
+        this.productRepository = productRepository;
+        this.projectAssignmentService = projectAssignmentService;
     }
 
     @Transactional
@@ -47,6 +58,12 @@ public class DealService {
             throw new ResponseStatusException(
                     org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Lead must be WON before creating a contract");
+        }
+        if (MANAGER.equals(role) && actorId != null) {
+            Product product = productRepository.findById(lead.getProductId()).orElse(null);
+            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Lead belongs to a project you are not assigned to");
+            }
         }
         if (dealRepository.existsByLeadId(request.leadId())) {
             throw new ConflictException("Lead already has a contract");
@@ -91,9 +108,24 @@ public class DealService {
             String role,
             Pageable pageable) {
         UUID effectiveSalesId = isPrivileged(role) ? salesId : actorId;
+        List<UUID> allowedLeadIds = null;
+        if (MANAGER.equals(role) && actorId != null) {
+            List<UUID> assignedProjectIds = projectAssignmentService.getAssignedProjectIds(actorId);
+            if (assignedProjectIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            List<UUID> allowedProductIds = productRepository.findIdsByProjectIdIn(assignedProjectIds);
+            if (allowedProductIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            allowedLeadIds = leadRepository.findIdsByProductIdIn(allowedProductIds);
+            if (allowedLeadIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
         return dealRepository
                 .findAll(DealRepository.filter(
-                        leadId, effectiveSalesId, status, paymentStatus, approvalStatus),
+                        leadId, effectiveSalesId, status, paymentStatus, approvalStatus, allowedLeadIds),
                         pageable)
                 .map(DealResponse::from);
     }
@@ -174,13 +206,25 @@ public class DealService {
         if (!isPrivileged(role)) {
             throw new ResponseStatusException(FORBIDDEN, "Only ADMIN/MANAGER can delete contracts");
         }
-        dealRepository.delete(find(dealId));
+        Deal deal = requireAccess(dealId, actorId, role);
+        dealRepository.delete(deal);
     }
 
     @Transactional(readOnly = true)
     public Deal requireAccess(UUID dealId, UUID actorId, String role) {
         Deal deal = find(dealId);
-        if (!isPrivileged(role) && !deal.getSalesId().equals(actorId)) {
+        if (ADMIN.equals(role)) {
+            return deal;
+        }
+        if (MANAGER.equals(role) && actorId != null) {
+            Lead lead = leadRepository.findById(deal.getLeadId()).orElse(null);
+            Product product = lead != null ? productRepository.findById(lead.getProductId()).orElse(null) : null;
+            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Deal belongs to a project you are not assigned to");
+            }
+            return deal;
+        }
+        if (!deal.getSalesId().equals(actorId)) {
             throw new ResponseStatusException(FORBIDDEN, "Contract is not assigned to you");
         }
         return deal;
@@ -190,7 +234,18 @@ public class DealService {
     public Deal requireAccessForPayment(UUID dealId, UUID actorId, String role) {
         Deal deal = dealRepository.findWithLockById(dealId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Contract not found"));
-        if (!isPrivileged(role) && !deal.getSalesId().equals(actorId)) {
+        if (ADMIN.equals(role)) {
+            return deal;
+        }
+        if (MANAGER.equals(role) && actorId != null) {
+            Lead lead = leadRepository.findById(deal.getLeadId()).orElse(null);
+            Product product = lead != null ? productRepository.findById(lead.getProductId()).orElse(null) : null;
+            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Deal belongs to a project you are not assigned to");
+            }
+            return deal;
+        }
+        if (!deal.getSalesId().equals(actorId)) {
             throw new ResponseStatusException(FORBIDDEN, "Contract is not assigned to you");
         }
         return deal;

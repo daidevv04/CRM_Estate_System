@@ -52,6 +52,29 @@ class UserServiceTests {
     }
 
     @Test
+    void createUserWithLeadingZeroPhoneSucceeds() {
+        UserRepository users = mock(UserRepository.class);
+        RefreshTokenRepository tokens = mock(RefreshTokenRepository.class);
+        PasswordEncoder passwords = mock(PasswordEncoder.class);
+        UserService service = new UserService(users, tokens, passwords);
+        UUID adminId = UUID.randomUUID();
+        User admin = new User();
+        admin.setId(adminId);
+        when(users.getReferenceById(adminId)).thenReturn(admin);
+        when(passwords.encode(anyString())).thenReturn("encoded-password");
+        when(users.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+
+        service.create(new CreateUserRequest(
+                "nguyen.an2", "Password1!", "an2@example.com", "Nguyễn Văn An", "0912345678",
+                "105 Nguyễn Giáp, Đà Nẵng", UserRole.SALES), adminId);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(users).save(captor.capture());
+        User created = captor.getValue();
+        assertThat(created.getPhone()).isEqualTo("0912345678");
+    }
+
+    @Test
     void responseIncludesSafeSecurityAndAuditFieldsWithoutSecrets() {
         User user = new User();
         User creator = new User();
@@ -124,5 +147,68 @@ class UserServiceTests {
         assertThat(user.getEmail()).isNull();
         assertThat(user.getPhone()).isNull();
         assertThat(user.getAddress()).isNull();
+    }
+
+    @Test
+    void managerCannotCreateAdminOrManager() {
+        UserRepository users = mock(UserRepository.class);
+        RefreshTokenRepository tokens = mock(RefreshTokenRepository.class);
+        PasswordEncoder passwords = mock(PasswordEncoder.class);
+        CrmClient crmClient = mock(CrmClient.class);
+        UserService service = new UserService(users, tokens, passwords, crmClient);
+        UUID managerId = UUID.randomUUID();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.create(new CreateUserRequest(
+                "sub.admin", "Password1!", "admin2@example.com", "Admin 2", "+84912345679",
+                "Hà Nội", UserRole.ADMIN), managerId, "MANAGER"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Manager can only create SALES accounts");
+    }
+
+    @Test
+    void managerCanCreateSalesUser() {
+        UserRepository users = mock(UserRepository.class);
+        RefreshTokenRepository tokens = mock(RefreshTokenRepository.class);
+        PasswordEncoder passwords = mock(PasswordEncoder.class);
+        CrmClient crmClient = mock(CrmClient.class);
+        UserService service = new UserService(users, tokens, passwords, crmClient);
+        UUID managerId = UUID.randomUUID();
+        User manager = new User();
+        manager.setId(managerId);
+
+        when(users.getReferenceById(managerId)).thenReturn(manager);
+        when(passwords.encode("Password1!")).thenReturn("encoded-password");
+        when(users.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+
+        UserResponse res = service.create(new CreateUserRequest(
+                "sales.one", "Password1!", "sales1@example.com", "Sales One", "+84912345670",
+                "HCM", UserRole.SALES), managerId, "MANAGER");
+
+        assertThat(res.role()).isEqualTo(UserRole.SALES);
+        assertThat(res.username()).isEqualTo("sales.one");
+    }
+
+    @Test
+    void managerCannotDeleteUserOutsideScope() {
+        UserRepository users = mock(UserRepository.class);
+        RefreshTokenRepository tokens = mock(RefreshTokenRepository.class);
+        PasswordEncoder passwords = mock(PasswordEncoder.class);
+        CrmClient crmClient = mock(CrmClient.class);
+        UserService service = new UserService(users, tokens, passwords, crmClient);
+
+        UUID managerId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+
+        User targetSales = new User();
+        targetSales.setId(otherUserId);
+        targetSales.setRole(UserRole.SALES);
+
+        when(users.findById(otherUserId)).thenReturn(Optional.of(targetSales));
+        when(crmClient.getManagedUserIds(managerId)).thenReturn(java.util.List.of(managerId));
+        when(users.findIdsByCreatedById(managerId)).thenReturn(java.util.List.of());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.delete(otherUserId, managerId, "MANAGER"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("User is not in your managed scope");
     }
 }

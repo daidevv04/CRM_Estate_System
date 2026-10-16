@@ -55,9 +55,12 @@ public class ProductController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) String keyword,
+            @AuthenticationPrincipal Jwt jwt,
             @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        UUID actorId = jwt != null ? actorId(jwt) : null;
+        String role = jwt != null ? role(jwt) : null;
         return productService.list(
-                projectId, type, status, block, minPrice, maxPrice, keyword, pageable);
+                projectId, type, status, block, minPrice, maxPrice, keyword, actorId, role, pageable);
     }
 
     @GetMapping("/{productId}")
@@ -84,7 +87,7 @@ public class ProductController {
     @DeleteMapping("/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID productId, @AuthenticationPrincipal Jwt jwt) {
-        productService.delete(productId, role(jwt));
+        productService.delete(productId, actorId(jwt), role(jwt));
     }
 
     private UUID actorId(Jwt jwt) {

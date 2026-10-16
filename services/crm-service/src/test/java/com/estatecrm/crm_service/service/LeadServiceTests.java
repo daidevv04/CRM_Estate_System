@@ -31,7 +31,19 @@ class LeadServiceTests {
     @Mock private LeadStageHistoryRepository historyRepository;
     @Mock private ProductRepository productRepository;
     @Mock private DealRepository dealRepository;
+    @Mock private ProjectAssignmentService projectAssignmentService;
     @InjectMocks private LeadService leadService;
+
+    @Test
+    void managerWithNoAssignedProjectsGetsEmptyLeadList() {
+        UUID managerId = UUID.randomUUID();
+        when(projectAssignmentService.getAssignedProjectIds(managerId)).thenReturn(List.of());
+
+        org.springframework.data.domain.Page<com.estatecrm.crm_service.dto.LeadResponse> result =
+                leadService.list(null, null, null, null, null, managerId, "MANAGER", org.springframework.data.domain.PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).isEmpty();
+    }
 
     @Test
     void pipelineUsesStageHistoryAndLimitsSalesToOwnLeads() {

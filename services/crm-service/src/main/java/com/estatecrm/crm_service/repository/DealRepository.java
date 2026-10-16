@@ -30,8 +30,24 @@ public interface DealRepository extends JpaRepository<Deal, UUID>, JpaSpecificat
             DealStatus status,
             PaymentStatus paymentStatus,
             ApprovalStatus approvalStatus) {
+        return filter(leadId, salesId, status, paymentStatus, approvalStatus, null);
+    }
+
+    static Specification<Deal> filter(
+            UUID leadId,
+            UUID salesId,
+            DealStatus status,
+            PaymentStatus paymentStatus,
+            ApprovalStatus approvalStatus,
+            java.util.Collection<UUID> allowedLeadIds) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedLeadIds != null) {
+                if (allowedLeadIds.isEmpty()) {
+                    return cb.disjunction();
+                }
+                conditions.add(root.get("leadId").in(allowedLeadIds));
+            }
             if (leadId != null) {
                 conditions.add(cb.equal(root.get("leadId"), leadId));
             }

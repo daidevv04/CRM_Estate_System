@@ -23,7 +23,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleDataIntegrity(DataIntegrityViolationException exception) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Account already exists");
+        String msg = exception.getMostSpecificCause() != null ? exception.getMostSpecificCause().getMessage() : exception.getMessage();
+        if (msg != null && (msg.contains("uq_users") || msg.contains("users_username") || msg.contains("users_phone") || msg.contains("users_email"))) {
+            return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Account already exists");
+        }
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, msg != null ? msg : "Data integrity violation");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

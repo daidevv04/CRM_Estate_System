@@ -28,14 +28,17 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProductRepository productRepository;
     private final ImageStorageService imageStorageService;
+    private final ProjectAssignmentService projectAssignmentService;
 
     public ProjectService(
             ProjectRepository projectRepository,
             ProductRepository productRepository,
-            ImageStorageService imageStorageService) {
+            ImageStorageService imageStorageService,
+            ProjectAssignmentService projectAssignmentService) {
         this.projectRepository = projectRepository;
         this.productRepository = productRepository;
         this.imageStorageService = imageStorageService;
+        this.projectAssignmentService = projectAssignmentService;
     }
 
     @Transactional
@@ -45,19 +48,42 @@ public class ProjectService {
         apply(project, request.name(), request.location(), request.investor(),
                 request.description(), request.imageUrl(), request.status());
         project.setCreatedBy(actorId);
-        return ProjectResponse.from(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        projectAssignmentService.assignProjectCreator(saved, actorId, role);
+        return ProjectResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
     public Page<ProjectResponse> list(
             ProjectStatus status, String investor, String keyword, Pageable pageable) {
+        return list(status, investor, keyword, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProjectResponse> list(
+            ProjectStatus status, String investor, String keyword, UUID actorId, String role, Pageable pageable) {
+        java.util.List<UUID> allowedProjectIds = null;
+        if (MANAGER.equals(role) && actorId != null) {
+            allowedProjectIds = projectAssignmentService.getAssignedProjectIds(actorId);
+            if (allowedProjectIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
         return projectRepository
-                .findAll(ProjectRepository.filter(status, investor, keyword), pageable)
+                .findAll(ProjectRepository.filter(status, investor, keyword, allowedProjectIds), pageable)
                 .map(ProjectResponse::from);
     }
 
     @Transactional(readOnly = true)
     public ProjectResponse get(UUID projectId) {
+        return get(projectId, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectResponse get(UUID projectId, UUID actorId, String role) {
+        if (MANAGER.equals(role) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, projectId)) {
+            throw new ResponseStatusException(FORBIDDEN, "Project is not assigned to you");
+        }
         return ProjectResponse.from(find(projectId));
     }
 
@@ -65,6 +91,9 @@ public class ProjectService {
     public ProjectResponse update(
             UUID projectId, UpdateProjectRequest request, UUID actorId, String role) {
         requirePrivileged(role);
+        if (MANAGER.equals(role) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, projectId)) {
+            throw new ResponseStatusException(FORBIDDEN, "Project is not assigned to you");
+        }
         Project project = find(projectId);
         apply(project, request.name(), request.location(), request.investor(),
                 request.description(), request.imageUrl(), request.status());
@@ -74,7 +103,9 @@ public class ProjectService {
 
     @Transactional
     public void delete(UUID projectId, String role) {
-        requirePrivileged(role);
+        if (!ADMIN.equals(role)) {
+            throw new ResponseStatusException(FORBIDDEN, "Only ADMIN can delete projects");
+        }
         Project project = find(projectId);
         if (productRepository.existsByProjectId(projectId)) {
             throw new ConflictException("Project still has products; delete them first");
@@ -85,6 +116,9 @@ public class ProjectService {
     @Transactional
     public ProjectResponse uploadImage(UUID projectId, MultipartFile image, UUID actorId, String role) {
         requirePrivileged(role);
+        if (MANAGER.equals(role) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, projectId)) {
+            throw new ResponseStatusException(FORBIDDEN, "Project is not assigned to you");
+        }
         Project project = find(projectId);
         project.setImageUrl(imageStorageService.upload("projects", projectId.toString(), image));
         project.setUpdatedBy(actorId);

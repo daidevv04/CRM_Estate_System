@@ -34,23 +34,29 @@ public class ProductService {
     private final LeadRepository leadRepository;
     private final ContactDetailRepository contactDetailRepository;
     private final ImageStorageService imageStorageService;
+    private final ProjectAssignmentService projectAssignmentService;
 
     public ProductService(
             ProductRepository productRepository,
             ProjectRepository projectRepository,
             LeadRepository leadRepository,
             ContactDetailRepository contactDetailRepository,
-            ImageStorageService imageStorageService) {
+            ImageStorageService imageStorageService,
+            ProjectAssignmentService projectAssignmentService) {
         this.productRepository = productRepository;
         this.projectRepository = projectRepository;
         this.leadRepository = leadRepository;
         this.contactDetailRepository = contactDetailRepository;
         this.imageStorageService = imageStorageService;
+        this.projectAssignmentService = projectAssignmentService;
     }
 
     @Transactional
     public ProductResponse create(CreateProductRequest request, UUID actorId, String role) {
         requirePrivileged(role);
+        if (MANAGER.equals(role) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, request.projectId())) {
+            throw new ResponseStatusException(FORBIDDEN, "Project is not assigned to you");
+        }
         if (!projectRepository.existsById(request.projectId())) {
             throw new ResponseStatusException(NOT_FOUND, "Project not found");
         }
@@ -84,9 +90,35 @@ public class ProductService {
             BigDecimal maxPrice,
             String keyword,
             Pageable pageable) {
+        return list(projectId, type, status, block, minPrice, maxPrice, keyword, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> list(
+            UUID projectId,
+            ProductType type,
+            ProductStatus status,
+            String block,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            String keyword,
+            UUID actorId,
+            String role,
+            Pageable pageable) {
+        java.util.List<UUID> allowedProjectIds = null;
+        if (MANAGER.equals(role) && actorId != null) {
+            java.util.List<UUID> assigned = projectAssignmentService.getAssignedProjectIds(actorId);
+            if (assigned.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            if (projectId != null && !assigned.contains(projectId)) {
+                return Page.empty(pageable);
+            }
+            allowedProjectIds = assigned;
+        }
         return productRepository
                 .findAll(ProductRepository.filter(
-                        projectId, type, status, block, minPrice, maxPrice, keyword),
+                        projectId, type, status, block, minPrice, maxPrice, keyword, allowedProjectIds),
                         pageable)
                 .map(ProductResponse::from);
     }
@@ -100,7 +132,7 @@ public class ProductService {
     public ProductResponse update(
             UUID productId, UpdateProductRequest request, UUID actorId, String role) {
         requirePrivileged(role);
-        Product product = find(productId);
+        Product product = findAndVerifyAccess(productId, actorId, role);
         if (request.code() != null
                 && !request.code().equals(product.getCode())
                 && productRepository.existsByProjectIdAndCode(product.getProjectId(), request.code())) {
@@ -138,9 +170,9 @@ public class ProductService {
     }
 
     @Transactional
-    public void delete(UUID productId, String role) {
+    public void delete(UUID productId, UUID actorId, String role) {
         requirePrivileged(role);
-        Product product = find(productId);
+        Product product = findAndVerifyAccess(productId, actorId, role);
         if (leadRepository.existsByProductId(productId)) {
             throw new ConflictException("Product still has leads; delete them first");
         }
@@ -151,12 +183,27 @@ public class ProductService {
     }
 
     @Transactional
+    public void delete(UUID productId, String role) {
+        delete(productId, null, role);
+    }
+
+    @Transactional
     public ProductResponse uploadImage(UUID productId, MultipartFile image, UUID actorId, String role) {
         requirePrivileged(role);
-        Product product = find(productId);
+        Product product = findAndVerifyAccess(productId, actorId, role);
         product.setImageUrl(imageStorageService.upload("products", productId.toString(), image));
         product.setUpdatedBy(actorId);
         return ProductResponse.from(productRepository.save(product));
+    }
+
+    private Product findAndVerifyAccess(UUID productId, UUID actorId, String role) {
+        Product product = find(productId);
+        if (MANAGER.equals(role) && actorId != null) {
+            if (!projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Product belongs to a project you are not assigned to");
+            }
+        }
+        return product;
     }
 
     private Product find(UUID productId) {

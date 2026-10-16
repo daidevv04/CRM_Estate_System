@@ -21,6 +21,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
+    java.util.List<User> findByRoleInAndStatus(
+            java.util.Collection<com.estatecrm.user_service.enums.UserRole> roles,
+            com.estatecrm.user_service.enums.UserStatus status);
+
+    java.util.List<User> findByStatus(com.estatecrm.user_service.enums.UserStatus status);
+
+    @Query("SELECT u.id FROM User u WHERE u.createdBy.id = :creatorId")
+    java.util.List<UUID> findIdsByCreatedById(@Param("creatorId") UUID creatorId);
+
     @Modifying
     @Query("update User u set u.createdBy = null where u.createdBy.id = :userId")
     int clearCreatedBy(@Param("userId") UUID userId);

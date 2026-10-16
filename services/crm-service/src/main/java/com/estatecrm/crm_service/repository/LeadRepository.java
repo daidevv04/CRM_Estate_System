@@ -17,14 +17,37 @@ public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificat
 
     List<Lead> findByAssignedTo(UUID assignedTo);
 
+    List<Lead> findByProductIdIn(java.util.Collection<UUID> productIds);
+
+    List<Lead> findByProductIdInAndAssignedTo(java.util.Collection<UUID> productIds, UUID assignedTo);
+
+    @org.springframework.data.jpa.repository.Query("SELECT l.id FROM Lead l WHERE l.productId IN :productIds")
+    List<UUID> findIdsByProductIdIn(@org.springframework.data.repository.query.Param("productIds") java.util.Collection<UUID> productIds);
+
     static Specification<Lead> filter(
             UUID customerId,
             UUID productId,
             UUID assignedTo,
             LeadStage stage,
             LocalDate closeDate) {
+        return filter(customerId, productId, assignedTo, stage, closeDate, null);
+    }
+
+    static Specification<Lead> filter(
+            UUID customerId,
+            UUID productId,
+            UUID assignedTo,
+            LeadStage stage,
+            LocalDate closeDate,
+            java.util.Collection<UUID> allowedProductIds) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
+            if (allowedProductIds != null) {
+                if (allowedProductIds.isEmpty()) {
+                    return cb.disjunction();
+                }
+                conditions.add(root.get("productId").in(allowedProductIds));
+            }
             if (customerId != null) {
                 conditions.add(cb.equal(root.get("customerId"), customerId));
             }

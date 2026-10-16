@@ -10,6 +10,7 @@ import com.estatecrm.customer_service.exception.ConflictException;
 import com.estatecrm.customer_service.repository.AppointmentRepository;
 import com.estatecrm.customer_service.repository.CustomerCareRepository;
 import com.estatecrm.customer_service.repository.CustomerRepository;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -30,14 +31,17 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final CustomerCareRepository customerCareRepository;
     private final AppointmentRepository appointmentRepository;
+    private final CrmClient crmClient;
 
     public CustomerService(
             CustomerRepository customerRepository,
             CustomerCareRepository customerCareRepository,
-            AppointmentRepository appointmentRepository) {
+            AppointmentRepository appointmentRepository,
+            CrmClient crmClient) {
         this.customerRepository = customerRepository;
         this.customerCareRepository = customerCareRepository;
         this.appointmentRepository = appointmentRepository;
+        this.crmClient = crmClient;
     }
 
     @Transactional
@@ -59,7 +63,16 @@ public class CustomerService {
         customer.setSource(request.source());
         customer.setStatus(request.status() == null ? CustomerStatus.NEW : request.status());
 
-        UUID ownerId = isPrivileged(role) && request.ownerId() != null ? request.ownerId() : actorId;
+        UUID ownerId = actorId;
+        if (ADMIN.equals(role) && request.ownerId() != null) {
+            ownerId = request.ownerId();
+        } else if (MANAGER.equals(role) && request.ownerId() != null) {
+            List<UUID> allowedOwnerIds = crmClient.getManagedUserIds(actorId);
+            if (!allowedOwnerIds.contains(request.ownerId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Cannot assign customer to staff outside your managed project scope");
+            }
+            ownerId = request.ownerId();
+        }
         customer.setOwnerId(ownerId);
         customer.setCreatedBy(actorId);
         return CustomerResponse.from(customerRepository.save(customer));
@@ -75,9 +88,26 @@ public class CustomerService {
             String source,
             String keyword,
             Pageable pageable) {
-        UUID effectiveOwner = isPrivileged(role) ? ownerId : actorId;
+        if (ADMIN.equals(role)) {
+            return customerRepository
+                    .findAll(CustomerRepository.filter(ownerId, null, status, demandType, source, keyword), pageable)
+                    .map(CustomerResponse::from);
+        }
+        if (MANAGER.equals(role)) {
+            List<UUID> allowedOwnerIds = crmClient.getManagedUserIds(actorId);
+            if (allowedOwnerIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            if (ownerId != null && !allowedOwnerIds.contains(ownerId)) {
+                return Page.empty(pageable);
+            }
+            return customerRepository
+                    .findAll(CustomerRepository.filter(ownerId, allowedOwnerIds, status, demandType, source, keyword), pageable)
+                    .map(CustomerResponse::from);
+        }
+        // SALES role
         return customerRepository
-                .findAll(CustomerRepository.filter(effectiveOwner, status, demandType, source, keyword), pageable)
+                .findAll(CustomerRepository.filter(actorId, null, status, demandType, source, keyword), pageable)
                 .map(CustomerResponse::from);
     }
 
@@ -117,8 +147,16 @@ public class CustomerService {
         if (request.status() != null) {
             customer.setStatus(request.status());
         }
-        if (request.ownerId() != null && isPrivileged(role)) {
-            customer.setOwnerId(request.ownerId());
+        if (request.ownerId() != null) {
+            if (ADMIN.equals(role)) {
+                customer.setOwnerId(request.ownerId());
+            } else if (MANAGER.equals(role)) {
+                List<UUID> allowedOwnerIds = crmClient.getManagedUserIds(actorId);
+                if (!allowedOwnerIds.contains(request.ownerId())) {
+                    throw new ResponseStatusException(FORBIDDEN, "Cannot reassign customer to staff outside your managed project scope");
+                }
+                customer.setOwnerId(request.ownerId());
+            }
         }
         customer.setUpdatedBy(actorId);
         return CustomerResponse.from(customerRepository.save(customer));
@@ -140,10 +178,24 @@ public class CustomerService {
     public Customer requireAccess(UUID customerId, UUID actorId, String role) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Customer not found"));
-        if (!isPrivileged(role) && !customer.getOwnerId().equals(actorId)) {
+        if (ADMIN.equals(role)) {
+            return customer;
+        }
+        if (MANAGER.equals(role)) {
+            List<UUID> allowedOwnerIds = crmClient.getManagedUserIds(actorId);
+            if (!allowedOwnerIds.contains(customer.getOwnerId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Customer is not within your managed project scope");
+            }
+            return customer;
+        }
+        if (!customer.getOwnerId().equals(actorId)) {
             throw new ResponseStatusException(FORBIDDEN, "Customer is not assigned to you");
         }
         return customer;
+    }
+
+    public List<UUID> getManagedUserIds(UUID managerId) {
+        return crmClient.getManagedUserIds(managerId);
     }
 
     public boolean isPrivileged(String role) {

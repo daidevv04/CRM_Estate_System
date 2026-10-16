@@ -34,6 +34,9 @@ class CustomerServiceDeleteTests {
     @Mock
     private AppointmentRepository appointmentRepository;
 
+    @Mock
+    private CrmClient crmClient;
+
     @InjectMocks
     private CustomerService customerService;
 

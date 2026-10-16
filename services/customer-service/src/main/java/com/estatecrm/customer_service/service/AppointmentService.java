@@ -65,9 +65,25 @@ public class AppointmentService {
             LocalDateTime from,
             LocalDateTime to,
             Pageable pageable) {
-        UUID effectiveSales = customerService.isPrivileged(role) ? salesId : actorId;
+        if ("ADMIN".equals(role)) {
+            return appointmentRepository
+                    .findAll(AppointmentRepository.filter(salesId, null, customerId, status, from, to), pageable)
+                    .map(AppointmentResponse::from);
+        }
+        if ("MANAGER".equals(role)) {
+            java.util.List<UUID> allowedSalesIds = customerService.getManagedUserIds(actorId);
+            if (allowedSalesIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            if (salesId != null && !allowedSalesIds.contains(salesId)) {
+                return Page.empty(pageable);
+            }
+            return appointmentRepository
+                    .findAll(AppointmentRepository.filter(salesId, allowedSalesIds, customerId, status, from, to), pageable)
+                    .map(AppointmentResponse::from);
+        }
         return appointmentRepository
-                .findAll(AppointmentRepository.filter(effectiveSales, customerId, status, from, to), pageable)
+                .findAll(AppointmentRepository.filter(actorId, null, customerId, status, from, to), pageable)
                 .map(AppointmentResponse::from);
     }
 
@@ -134,7 +150,17 @@ public class AppointmentService {
     private Appointment requireAccess(UUID appointmentId, UUID actorId, String role) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Appointment not found"));
-        if (!customerService.isPrivileged(role) && !appointment.getSalesId().equals(actorId)) {
+        if ("ADMIN".equals(role)) {
+            return appointment;
+        }
+        if ("MANAGER".equals(role)) {
+            java.util.List<UUID> allowedSalesIds = customerService.getManagedUserIds(actorId);
+            if (!allowedSalesIds.contains(appointment.getSalesId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Appointment is not within your managed project scope");
+            }
+            return appointment;
+        }
+        if (!appointment.getSalesId().equals(actorId)) {
             throw new ResponseStatusException(FORBIDDEN, "Appointment is not on your calendar");
         }
         return appointment;
