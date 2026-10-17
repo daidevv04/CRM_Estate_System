@@ -12,8 +12,11 @@ import com.estatecrm.crm_service.dto.DealResponse;
 import com.estatecrm.crm_service.dto.UpdateDealRequest;
 import com.estatecrm.crm_service.entity.Deal;
 import com.estatecrm.crm_service.entity.Lead;
+import com.estatecrm.crm_service.entity.Product;
 import com.estatecrm.crm_service.enums.ApprovalStatus;
+import com.estatecrm.crm_service.enums.DealStatus;
 import com.estatecrm.crm_service.enums.LeadStage;
+import com.estatecrm.crm_service.enums.ProductStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
@@ -34,6 +37,8 @@ class DealServiceTests {
 
     private static final UUID ACTOR = UUID.randomUUID();
     private static final UUID LEAD_ID = UUID.randomUUID();
+    private static final UUID PRODUCT_ID = UUID.randomUUID();
+    private static final UUID PROJECT_ID = UUID.randomUUID();
 
     @Mock
     private DealRepository dealRepository;
@@ -53,9 +58,19 @@ class DealServiceTests {
     private Lead wonLead() {
         Lead lead = new Lead();
         lead.setId(LEAD_ID);
+        lead.setProjectId(PROJECT_ID);
+        lead.setProductId(PRODUCT_ID);
         lead.setStage(LeadStage.WON);
         lead.setAssignedTo(ACTOR);
         return lead;
+    }
+
+    private Product availableProduct() {
+        Product product = new Product();
+        product.setId(PRODUCT_ID);
+        product.setProjectId(PROJECT_ID);
+        product.setStatus(ProductStatus.AVAILABLE);
+        return product;
     }
 
     @Test
@@ -71,8 +86,35 @@ class DealServiceTests {
     }
 
     @Test
+    void rejectsDealFromLeadWithoutAssignedProduct() {
+        Lead lead = wonLead();
+        lead.setProductId(null);
+        when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(lead));
+
+        assertThatThrownBy(() -> dealService.create(request("HD-00B", null, null), ACTOR, "SALES"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("must have an assigned product");
+        verify(dealRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsDealWhenProductIsAlreadySold() {
+        Product soldProduct = availableProduct();
+        soldProduct.setStatus(ProductStatus.SOLD);
+
+        when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(wonLead()));
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(soldProduct));
+
+        assertThatThrownBy(() -> dealService.create(request("HD-00C", null, null), ACTOR, "SALES"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Product has already been sold");
+        verify(dealRepository, never()).save(any());
+    }
+
+    @Test
     void rejectsSecondContractForSameLead() {
         when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(wonLead()));
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(availableProduct()));
         when(dealRepository.existsByLeadId(LEAD_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> dealService.create(request("HD-01", null, null), ACTOR, "SALES"))
@@ -85,6 +127,7 @@ class DealServiceTests {
     void salesCannotAssignContractToSomeoneElse() {
         UUID otherSales = UUID.randomUUID();
         when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(wonLead()));
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(availableProduct()));
         when(dealRepository.existsByLeadId(LEAD_ID)).thenReturn(false);
         when(dealRepository.existsByContractCode("HD-02")).thenReturn(false);
         when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -99,6 +142,7 @@ class DealServiceTests {
     @Test
     void rejectsDepositLargerThanContractValue() {
         when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(wonLead()));
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(availableProduct()));
         when(dealRepository.existsByLeadId(LEAD_ID)).thenReturn(false);
         when(dealRepository.existsByContractCode("HD-03")).thenReturn(false);
 
@@ -130,7 +174,7 @@ class DealServiceTests {
     }
 
     @Test
-    void managerApprovalStampsApprovedByAndAt() {
+    void managerApprovalStampsApprovedByAndSetsProductToSold() {
         Deal deal = new Deal();
         deal.setId(UUID.randomUUID());
         deal.setLeadId(LEAD_ID);
@@ -138,29 +182,59 @@ class DealServiceTests {
         deal.setContractCode("HD-05");
 
         Lead lead = wonLead();
-        UUID productId = UUID.randomUUID();
-        lead.setProductId(productId);
-        com.estatecrm.crm_service.entity.Product product = new com.estatecrm.crm_service.entity.Product();
-        UUID projectId = UUID.randomUUID();
-        product.setId(productId);
-        product.setProjectId(projectId);
+        Product product = availableProduct();
 
         when(dealRepository.findById(deal.getId())).thenReturn(Optional.of(deal));
         when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(lead));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
-        when(projectAssignmentService.isAssignedToProject(ACTOR, projectId)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(projectAssignmentService.isAssignedToProject(ACTOR, PROJECT_ID)).thenReturn(true);
         when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         DealResponse response = dealService.update(
                 deal.getId(),
                 new UpdateDealRequest(
-                        null, null, null, null, null, null, null,
-                        ApprovalStatus.APPROVED, null, null, null, null),
+                                null, null, null, null, null, null, null,
+                                ApprovalStatus.APPROVED, null, null, null, null),
                 ACTOR, "MANAGER");
 
         assertThat(response.approvalStatus()).isEqualTo(ApprovalStatus.APPROVED);
         assertThat(response.approvedBy()).isEqualTo(ACTOR);
         assertThat(response.approvedAt()).isNotNull();
+
+        // Verify product was synced to SOLD
+        verify(productRepository).save(product);
+        assertThat(product.getStatus()).isEqualTo(ProductStatus.SOLD);
+    }
+
+    @Test
+    void rejectingApprovedContractRevertsProductToAvailable() {
+        Deal deal = new Deal();
+        deal.setId(UUID.randomUUID());
+        deal.setLeadId(LEAD_ID);
+        deal.setSalesId(UUID.randomUUID());
+        deal.setContractCode("HD-06");
+        deal.setApprovalStatus(ApprovalStatus.APPROVED);
+
+        Lead lead = wonLead();
+        Product product = availableProduct();
+        product.setStatus(ProductStatus.SOLD);
+
+        when(dealRepository.findById(deal.getId())).thenReturn(Optional.of(deal));
+        when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(lead));
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(projectAssignmentService.isAssignedToProject(ACTOR, PROJECT_ID)).thenReturn(true);
+        when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DealResponse response = dealService.update(
+                deal.getId(),
+                new UpdateDealRequest(
+                                null, null, null, null, null, null, null,
+                                ApprovalStatus.REJECTED, null, null, null, null),
+                ACTOR, "MANAGER");
+
+        assertThat(response.approvalStatus()).isEqualTo(ApprovalStatus.REJECTED);
+        verify(productRepository).save(product);
+        assertThat(product.getStatus()).isEqualTo(ProductStatus.AVAILABLE);
     }
 
     private CreateDealRequest request(String code, BigDecimal deposit, UUID salesId) {

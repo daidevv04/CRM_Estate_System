@@ -10,6 +10,7 @@ import com.estatecrm.crm_service.enums.ApprovalStatus;
 import com.estatecrm.crm_service.enums.DealStatus;
 import com.estatecrm.crm_service.enums.LeadStage;
 import com.estatecrm.crm_service.enums.PaymentStatus;
+import com.estatecrm.crm_service.enums.ProductStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
@@ -20,11 +21,11 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -56,14 +57,23 @@ public class DealService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Lead not found"));
         if (lead.getStage() != LeadStage.WON) {
             throw new ResponseStatusException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    BAD_REQUEST,
                     "Lead must be WON before creating a contract");
         }
+        if (lead.getProductId() == null) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST,
+                    "Lead must have an assigned product before creating a contract");
+        }
         if (MANAGER.equals(role) && actorId != null) {
-            Product product = productRepository.findById(lead.getProductId()).orElse(null);
-            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+            if (!projectAssignmentService.isAssignedToProject(actorId, lead.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Lead belongs to a project you are not assigned to");
             }
+        }
+        Product product = productRepository.findById(lead.getProductId())
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found"));
+        if (product.getStatus() == ProductStatus.SOLD) {
+            throw new ConflictException("Product has already been sold");
         }
         if (dealRepository.existsByLeadId(request.leadId())) {
             throw new ConflictException("Lead already has a contract");
@@ -114,11 +124,7 @@ public class DealService {
             if (assignedProjectIds.isEmpty()) {
                 return Page.empty(pageable);
             }
-            List<UUID> allowedProductIds = productRepository.findIdsByProjectIdIn(assignedProjectIds);
-            if (allowedProductIds.isEmpty()) {
-                return Page.empty(pageable);
-            }
-            allowedLeadIds = leadRepository.findIdsByProductIdIn(allowedProductIds);
+            allowedLeadIds = leadRepository.findIdsByProjectIdIn(assignedProjectIds);
             if (allowedLeadIds.isEmpty()) {
                 return Page.empty(pageable);
             }
@@ -140,26 +146,23 @@ public class DealService {
             UUID dealId, UpdateDealRequest request, UUID actorId, String role) {
         Deal deal = requireAccess(dealId, actorId, role);
         boolean privileged = isPrivileged(role);
+        ApprovalStatus previousApproval = deal.getApprovalStatus();
+        DealStatus previousStatus = deal.getStatus();
 
-        if (request.contractCode() != null
-                && !request.contractCode().equals(deal.getContractCode())) {
-            if (!privileged) {
-                throw new ResponseStatusException(
-                        FORBIDDEN, "Only ADMIN/MANAGER can change contract code");
-            }
-            if (dealRepository.existsByContractCode(request.contractCode())) {
-                throw new ConflictException("Contract code already exists");
-            }
-            deal.setContractCode(request.contractCode());
-        }
         if (request.contractValue() != null) {
+            BigDecimal effectiveDeposit = request.depositAmount() != null
+                    ? request.depositAmount()
+                    : deal.getDepositAmount();
+            requireDepositWithinValue(effectiveDeposit, request.contractValue());
             deal.setContractValue(request.contractValue());
         }
         if (request.depositAmount() != null) {
+            BigDecimal effectiveValue = request.contractValue() != null
+                    ? request.contractValue()
+                    : deal.getContractValue();
+            requireDepositWithinValue(request.depositAmount(), effectiveValue);
             deal.setDepositAmount(request.depositAmount());
         }
-
-        requireDepositWithinValue(deal.getDepositAmount(), deal.getContractValue());
         if (request.depositDate() != null) {
             deal.setDepositDate(request.depositDate());
         }
@@ -195,8 +198,17 @@ public class DealService {
             if (request.approvalStatus() == ApprovalStatus.APPROVED) {
                 deal.setApprovedBy(actorId);
                 deal.setApprovedAt(LocalDateTime.now());
+                syncProductStatus(deal.getLeadId(), ProductStatus.SOLD);
+            } else if (previousApproval == ApprovalStatus.APPROVED && request.approvalStatus() == ApprovalStatus.REJECTED) {
+                syncProductStatus(deal.getLeadId(), ProductStatus.AVAILABLE);
             }
         }
+
+        // If status changed to CANCELLED on an already approved deal, revert product to AVAILABLE
+        if (deal.getApprovalStatus() == ApprovalStatus.APPROVED && deal.getStatus() == DealStatus.CANCELLED && previousStatus != DealStatus.CANCELLED) {
+            syncProductStatus(deal.getLeadId(), ProductStatus.AVAILABLE);
+        }
+
         deal.setUpdatedBy(actorId);
         return DealResponse.from(dealRepository.save(deal));
     }
@@ -207,7 +219,21 @@ public class DealService {
             throw new ResponseStatusException(FORBIDDEN, "Only ADMIN/MANAGER can delete contracts");
         }
         Deal deal = requireAccess(dealId, actorId, role);
+        if (deal.getApprovalStatus() == ApprovalStatus.APPROVED) {
+            syncProductStatus(deal.getLeadId(), ProductStatus.AVAILABLE);
+        }
         dealRepository.delete(deal);
+    }
+
+    private void syncProductStatus(UUID leadId, ProductStatus targetStatus) {
+        Lead lead = leadRepository.findById(leadId).orElse(null);
+        if (lead != null && lead.getProductId() != null) {
+            Product product = productRepository.findById(lead.getProductId()).orElse(null);
+            if (product != null) {
+                product.setStatus(targetStatus);
+                productRepository.save(product);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -218,8 +244,7 @@ public class DealService {
         }
         if (MANAGER.equals(role) && actorId != null) {
             Lead lead = leadRepository.findById(deal.getLeadId()).orElse(null);
-            Product product = lead != null ? productRepository.findById(lead.getProductId()).orElse(null) : null;
-            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+            if (lead == null || !projectAssignmentService.isAssignedToProject(actorId, lead.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Deal belongs to a project you are not assigned to");
             }
             return deal;
@@ -233,14 +258,13 @@ public class DealService {
     @Transactional
     public Deal requireAccessForPayment(UUID dealId, UUID actorId, String role) {
         Deal deal = dealRepository.findWithLockById(dealId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Contract not found"));
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Deal not found"));
         if (ADMIN.equals(role)) {
             return deal;
         }
         if (MANAGER.equals(role) && actorId != null) {
             Lead lead = leadRepository.findById(deal.getLeadId()).orElse(null);
-            Product product = lead != null ? productRepository.findById(lead.getProductId()).orElse(null) : null;
-            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+            if (lead == null || !projectAssignmentService.isAssignedToProject(actorId, lead.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Deal belongs to a project you are not assigned to");
             }
             return deal;
@@ -251,19 +275,19 @@ public class DealService {
         return deal;
     }
 
-    public boolean isPrivileged(String role) {
-        return ADMIN.equals(role) || MANAGER.equals(role);
-    }
-
-    private Deal find(UUID dealId) {
-        return dealRepository.findById(dealId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Contract not found"));
+    private Deal find(UUID id) {
+        return dealRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Deal not found"));
     }
 
     private void requireDepositWithinValue(BigDecimal deposit, BigDecimal value) {
         if (deposit != null && value != null && deposit.compareTo(value) > 0) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Deposit amount must not exceed contract value");
+                    BAD_REQUEST, "Deposit amount must not exceed contract value");
         }
+    }
+
+    public boolean isPrivileged(String role) {
+        return ADMIN.equals(role) || MANAGER.equals(role);
     }
 }
