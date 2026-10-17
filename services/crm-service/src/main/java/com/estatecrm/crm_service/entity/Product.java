@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -59,4 +60,16 @@ public class Product extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProductStatus status = ProductStatus.AVAILABLE;
+
+    @Column(name = "locked_by")
+    private UUID lockedBy;
+
+    @Column(name = "locked_customer_id")
+    private UUID lockedCustomerId;
+
+    @Column(name = "lock_expires_at")
+    private LocalDate lockExpiresAt;
+
+    @Column(name = "lock_deposit_amount", precision = 15, scale = 2)
+    private BigDecimal lockDepositAmount;
 }
