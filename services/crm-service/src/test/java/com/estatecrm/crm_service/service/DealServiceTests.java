@@ -52,6 +52,9 @@ class DealServiceTests {
     @Mock
     private ProjectAssignmentService projectAssignmentService;
 
+    @Mock
+    private com.estatecrm.crm_service.repository.ProductReservationRepository productReservationRepository;
+
     @InjectMocks
     private DealService dealService;
 
@@ -183,11 +186,19 @@ class DealServiceTests {
 
         Lead lead = wonLead();
         Product product = availableProduct();
+        product.setStatus(ProductStatus.RESERVED);
+        product.setLockedBy(ACTOR);
+
+        com.estatecrm.crm_service.entity.ProductReservation reservation = new com.estatecrm.crm_service.entity.ProductReservation();
+        reservation.setStatus(com.estatecrm.crm_service.enums.ReservationStatus.ACTIVE);
 
         when(dealRepository.findById(deal.getId())).thenReturn(Optional.of(deal));
         when(leadRepository.findById(LEAD_ID)).thenReturn(Optional.of(lead));
         when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
         when(projectAssignmentService.isAssignedToProject(ACTOR, PROJECT_ID)).thenReturn(true);
+        when(productReservationRepository.findFirstByProductIdAndStatusOrderByPriorityAsc(
+                PRODUCT_ID, com.estatecrm.crm_service.enums.ReservationStatus.ACTIVE))
+                .thenReturn(Optional.of(reservation));
         when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         DealResponse response = dealService.update(
@@ -201,9 +212,14 @@ class DealServiceTests {
         assertThat(response.approvedBy()).isEqualTo(ACTOR);
         assertThat(response.approvedAt()).isNotNull();
 
-        // Verify product was synced to SOLD
+        // Verify product was synced to SOLD and lock fields cleared
         verify(productRepository).save(product);
         assertThat(product.getStatus()).isEqualTo(ProductStatus.SOLD);
+        assertThat(product.getLockedBy()).isNull();
+
+        // Verify reservation was converted to DEAL
+        assertThat(reservation.getStatus()).isEqualTo(com.estatecrm.crm_service.enums.ReservationStatus.CONVERTED_TO_DEAL);
+        verify(productReservationRepository).save(reservation);
     }
 
     @Test

@@ -11,10 +11,12 @@ import com.estatecrm.crm_service.enums.DealStatus;
 import com.estatecrm.crm_service.enums.LeadStage;
 import com.estatecrm.crm_service.enums.PaymentStatus;
 import com.estatecrm.crm_service.enums.ProductStatus;
+import com.estatecrm.crm_service.enums.ReservationStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
 import com.estatecrm.crm_service.repository.ProductRepository;
+import com.estatecrm.crm_service.repository.ProductReservationRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,16 +41,19 @@ public class DealService {
     private final LeadRepository leadRepository;
     private final ProductRepository productRepository;
     private final ProjectAssignmentService projectAssignmentService;
+    private final ProductReservationRepository productReservationRepository;
 
     public DealService(
             DealRepository dealRepository,
             LeadRepository leadRepository,
             ProductRepository productRepository,
-            ProjectAssignmentService projectAssignmentService) {
+            ProjectAssignmentService projectAssignmentService,
+            ProductReservationRepository productReservationRepository) {
         this.dealRepository = dealRepository;
         this.leadRepository = leadRepository;
         this.productRepository = productRepository;
         this.projectAssignmentService = projectAssignmentService;
+        this.productReservationRepository = productReservationRepository;
     }
 
     @Transactional
@@ -231,6 +236,17 @@ public class DealService {
             Product product = productRepository.findById(lead.getProductId()).orElse(null);
             if (product != null) {
                 product.setStatus(targetStatus);
+                if (targetStatus == ProductStatus.SOLD) {
+                    productReservationRepository.findFirstByProductIdAndStatusOrderByPriorityAsc(
+                            product.getId(), ReservationStatus.ACTIVE).ifPresent(r -> {
+                        r.setStatus(ReservationStatus.CONVERTED_TO_DEAL);
+                        productReservationRepository.save(r);
+                    });
+                    product.setLockedBy(null);
+                    product.setLockedCustomerId(null);
+                    product.setLockExpiresAt(null);
+                    product.setLockDepositAmount(null);
+                }
                 productRepository.save(product);
             }
         }
