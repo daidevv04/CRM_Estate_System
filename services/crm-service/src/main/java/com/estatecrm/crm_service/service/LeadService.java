@@ -58,17 +58,27 @@ public class LeadService {
 
     @Transactional
     public LeadResponse create(CreateLeadRequest request, UUID actorId, String role) {
-        Product product = productRepository.findById(request.productId())
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found"));
-        if (MANAGER.equals(role) && !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
-            throw new ResponseStatusException(FORBIDDEN, "Product belongs to a project you are not assigned to");
+        if (request.projectId() == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Project ID is required");
+        }
+        if (MANAGER.equals(role) && !projectAssignmentService.isAssignedToProject(actorId, request.projectId())) {
+            throw new ResponseStatusException(FORBIDDEN, "Project you are not assigned to");
+        }
+        if (request.productId() != null) {
+            Product product = productRepository.findById(request.productId())
+                    .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found"));
+            if (!product.getProjectId().equals(request.projectId())) {
+                throw new ResponseStatusException(BAD_REQUEST, "Product does not belong to the selected project");
+            }
         }
         UUID assignedTo = isPrivileged(role) && request.assignedTo() != null
                 ? request.assignedTo()
                 : actorId;
         Lead lead = new Lead();
         lead.setCustomerId(request.customerId());
+        lead.setProjectId(request.projectId());
         lead.setProductId(request.productId());
+        lead.setDemandNotes(request.demandNotes());
         if (request.stage() != null) {
             lead.setStage(request.stage());
         }
@@ -84,6 +94,7 @@ public class LeadService {
     @Transactional(readOnly = true)
     public Page<LeadResponse> list(
             UUID customerId,
+            UUID projectId,
             UUID productId,
             UUID assignedTo,
             LeadStage stage,
@@ -92,19 +103,16 @@ public class LeadService {
             String role,
             Pageable pageable) {
         UUID effectiveAssignedTo = isPrivileged(role) ? assignedTo : actorId;
-        List<UUID> allowedProductIds = null;
+        List<UUID> allowedProjectIds = null;
         if (MANAGER.equals(role) && actorId != null) {
             List<UUID> assignedProjectIds = projectAssignmentService.getAssignedProjectIds(actorId);
             if (assignedProjectIds.isEmpty()) {
                 return Page.empty(pageable);
             }
-            allowedProductIds = productRepository.findIdsByProjectIdIn(assignedProjectIds);
-            if (allowedProductIds.isEmpty()) {
-                return Page.empty(pageable);
-            }
+            allowedProjectIds = assignedProjectIds;
         }
         return leadRepository
-                .findAll(LeadRepository.filter(customerId, productId, effectiveAssignedTo, stage, closeDate, allowedProductIds),
+                .findAll(LeadRepository.filter(customerId, projectId, productId, effectiveAssignedTo, stage, closeDate, allowedProjectIds),
                         pageable)
                 .map(LeadResponse::from);
     }
@@ -122,13 +130,23 @@ public class LeadService {
         if (request.customerId() != null) {
             lead.setCustomerId(request.customerId());
         }
+        if (request.projectId() != null) {
+            if (MANAGER.equals(role) && !projectAssignmentService.isAssignedToProject(actorId, request.projectId())) {
+                throw new ResponseStatusException(FORBIDDEN, "Project you are not assigned to");
+            }
+            lead.setProjectId(request.projectId());
+        }
         if (request.productId() != null) {
             Product newProduct = productRepository.findById(request.productId())
                     .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found"));
-            if (MANAGER.equals(role) && !projectAssignmentService.isAssignedToProject(actorId, newProduct.getProjectId())) {
-                throw new ResponseStatusException(FORBIDDEN, "Product belongs to a project you are not assigned to");
+            UUID targetProjectId = lead.getProjectId();
+            if (!newProduct.getProjectId().equals(targetProjectId)) {
+                throw new ResponseStatusException(BAD_REQUEST, "Product does not belong to the selected project");
             }
             lead.setProductId(request.productId());
+        }
+        if (request.demandNotes() != null) {
+            lead.setDemandNotes(request.demandNotes());
         }
         if (request.stage() != null) {
             lead.setStage(request.stage());
@@ -163,7 +181,8 @@ public class LeadService {
     public java.util.List<com.estatecrm.crm_service.dto.LeadStageHistoryResponse> history(
             UUID leadId, UUID actorId, String role) {
         requireAccess(leadId, actorId, role);
-        return leadStageHistoryRepository.findByLeadIdOrderByChangedAtAsc(leadId).stream()
+        return leadStageHistoryRepository.findByLeadIdOrderByChangedAtAsc(leadId)
+                .stream()
                 .map(com.estatecrm.crm_service.dto.LeadStageHistoryResponse::from)
                 .toList();
     }
@@ -181,13 +200,15 @@ public class LeadService {
             if (assignedProjectIds.isEmpty()) {
                 leads = List.of();
             } else {
-                List<UUID> allowedProductIds = productRepository.findIdsByProjectIdIn(assignedProjectIds);
-                if (allowedProductIds.isEmpty()) {
+                List<UUID> leadIdsInProjects = leadRepository.findIdsByProjectIdIn(assignedProjectIds);
+                if (leadIdsInProjects.isEmpty()) {
                     leads = List.of();
                 } else if (effectiveAssignedTo != null) {
-                    leads = leadRepository.findByProductIdInAndAssignedTo(allowedProductIds, effectiveAssignedTo);
+                    leads = leadRepository.findAllById(leadIdsInProjects).stream()
+                            .filter(l -> l.getAssignedTo().equals(effectiveAssignedTo))
+                            .toList();
                 } else {
-                    leads = leadRepository.findByProductIdIn(allowedProductIds);
+                    leads = leadRepository.findAllById(leadIdsInProjects);
                 }
             }
         } else if (effectiveAssignedTo == null) {
@@ -244,8 +265,7 @@ public class LeadService {
             return lead;
         }
         if (MANAGER.equals(role) && actorId != null) {
-            Product product = productRepository.findById(lead.getProductId()).orElse(null);
-            if (product == null || !projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
+            if (!projectAssignmentService.isAssignedToProject(actorId, lead.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Lead belongs to a project you are not assigned to");
             }
             return lead;

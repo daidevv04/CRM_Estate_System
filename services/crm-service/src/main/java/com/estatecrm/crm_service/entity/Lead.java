@@ -30,8 +30,14 @@ public class Lead extends AuditableEntity {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "project_id", nullable = false)
+    private UUID projectId;
+
+    @Column(name = "product_id")
     private UUID productId;
+
+    @Column(name = "demand_notes", columnDefinition = "TEXT")
+    private String demandNotes;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

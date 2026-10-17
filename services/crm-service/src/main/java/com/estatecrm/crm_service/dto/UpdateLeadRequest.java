@@ -8,7 +8,9 @@ import java.util.UUID;
 
 public record UpdateLeadRequest(
         UUID customerId,
+        UUID projectId,
         UUID productId,
+        String demandNotes,
         LeadStage stage,
         @PositiveOrZero BigDecimal expectedValue,
         LocalDate closeDate,

@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificationExecutor<Lead> {
 
@@ -21,8 +23,11 @@ public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificat
 
     List<Lead> findByProductIdInAndAssignedTo(java.util.Collection<UUID> productIds, UUID assignedTo);
 
-    @org.springframework.data.jpa.repository.Query("SELECT l.id FROM Lead l WHERE l.productId IN :productIds")
-    List<UUID> findIdsByProductIdIn(@org.springframework.data.repository.query.Param("productIds") java.util.Collection<UUID> productIds);
+    @Query("SELECT l.id FROM Lead l WHERE l.productId IN :productIds")
+    List<UUID> findIdsByProductIdIn(@Param("productIds") java.util.Collection<UUID> productIds);
+
+    @Query("SELECT l.id FROM Lead l WHERE l.projectId IN :projectIds")
+    List<UUID> findIdsByProjectIdIn(@Param("projectIds") java.util.Collection<UUID> projectIds);
 
     static Specification<Lead> filter(
             UUID customerId,
@@ -30,26 +35,40 @@ public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificat
             UUID assignedTo,
             LeadStage stage,
             LocalDate closeDate) {
-        return filter(customerId, productId, assignedTo, stage, closeDate, null);
+        return filter(customerId, null, productId, assignedTo, stage, closeDate, null);
     }
 
     static Specification<Lead> filter(
             UUID customerId,
+            UUID projectId,
+            UUID productId,
+            UUID assignedTo,
+            LeadStage stage,
+            LocalDate closeDate) {
+        return filter(customerId, projectId, productId, assignedTo, stage, closeDate, null);
+    }
+
+    static Specification<Lead> filter(
+            UUID customerId,
+            UUID projectId,
             UUID productId,
             UUID assignedTo,
             LeadStage stage,
             LocalDate closeDate,
-            java.util.Collection<UUID> allowedProductIds) {
+            java.util.Collection<UUID> allowedProjectIds) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
-            if (allowedProductIds != null) {
-                if (allowedProductIds.isEmpty()) {
+            if (allowedProjectIds != null) {
+                if (allowedProjectIds.isEmpty()) {
                     return cb.disjunction();
                 }
-                conditions.add(root.get("productId").in(allowedProductIds));
+                conditions.add(root.get("projectId").in(allowedProjectIds));
             }
             if (customerId != null) {
                 conditions.add(cb.equal(root.get("customerId"), customerId));
+            }
+            if (projectId != null) {
+                conditions.add(cb.equal(root.get("projectId"), projectId));
             }
             if (productId != null) {
                 conditions.add(cb.equal(root.get("productId"), productId));

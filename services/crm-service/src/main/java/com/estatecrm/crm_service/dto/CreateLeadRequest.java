@@ -9,7 +9,9 @@ import java.util.UUID;
 
 public record CreateLeadRequest(
         @NotNull UUID customerId,
-        @NotNull UUID productId,
+        @NotNull UUID projectId,
+        UUID productId,
+        String demandNotes,
         LeadStage stage,
         @PositiveOrZero BigDecimal expectedValue,
         LocalDate closeDate,

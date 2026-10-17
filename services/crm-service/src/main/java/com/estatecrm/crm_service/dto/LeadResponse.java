@@ -10,7 +10,9 @@ import java.util.UUID;
 public record LeadResponse(
         UUID id,
         UUID customerId,
+        UUID projectId,
         UUID productId,
+        String demandNotes,
         LeadStage stage,
         BigDecimal expectedValue,
         LocalDate closeDate,
@@ -22,7 +24,9 @@ public record LeadResponse(
         return new LeadResponse(
                 lead.getId(),
                 lead.getCustomerId(),
+                lead.getProjectId(),
                 lead.getProductId(),
+                lead.getDemandNotes(),
                 lead.getStage(),
                 lead.getExpectedValue(),
                 lead.getCloseDate(),
