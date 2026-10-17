@@ -49,6 +49,8 @@ class ProductServiceTests {
     private ImageStorageService imageStorageService;
     @Mock
     private ProjectAssignmentService projectAssignmentService;
+    @Mock
+    private com.estatecrm.crm_service.repository.ProductReservationRepository productReservationRepository;
 
     private ProductService productService;
 
@@ -60,7 +62,8 @@ class ProductServiceTests {
                 leadRepository,
                 contactDetailRepository,
                 imageStorageService,
-                projectAssignmentService);
+                projectAssignmentService,
+                productReservationRepository);
     }
 
     @Test
@@ -166,5 +169,96 @@ class ProductServiceTests {
         assertThatThrownBy(() -> productService.delete(productId, UUID.randomUUID(), "SALES"))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Only ADMIN/MANAGER can manage products");
+    }
+
+    @Test
+    @DisplayName("lock product succeeds and sets status to RESERVED")
+    void lock_whenAvailable_succeeds() {
+        UUID productId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID salesId = UUID.randomUUID();
+
+        Product product = new Product();
+        product.setId(productId);
+        product.setProjectId(UUID.randomUUID());
+        product.setCode("A101");
+        product.setType(ProductType.APARTMENT);
+        product.setStatus(ProductStatus.AVAILABLE);
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.estatecrm.crm_service.dto.LockProductRequest req = new com.estatecrm.crm_service.dto.LockProductRequest(
+                customerId, 3, null, new BigDecimal("50000000"), "Dat coc giu cho");
+
+        ProductResponse res = productService.lock(productId, req, salesId, "SALES");
+
+        assertThat(res.status()).isEqualTo(ProductStatus.RESERVED);
+        assertThat(res.lockedBy()).isEqualTo(salesId);
+        assertThat(res.lockedCustomerId()).isEqualTo(customerId);
+        assertThat(res.lockExpiresAt()).isEqualTo(java.time.LocalDate.now().plusDays(3));
+        verify(productReservationRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("lock fails when product is already SOLD")
+    void lock_whenSold_throwsBadRequest() {
+        UUID productId = UUID.randomUUID();
+        Product product = new Product();
+        product.setId(productId);
+        product.setStatus(ProductStatus.SOLD);
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        com.estatecrm.crm_service.dto.LockProductRequest req = new com.estatecrm.crm_service.dto.LockProductRequest(
+                UUID.randomUUID(), 2, null, BigDecimal.ZERO, null);
+
+        assertThatThrownBy(() -> productService.lock(productId, req, UUID.randomUUID(), "SALES"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Cannot lock a sold product");
+    }
+
+    @Test
+    @DisplayName("unlock succeeds when actor is the sales who locked it")
+    void unlock_whenOwnerSales_succeeds() {
+        UUID productId = UUID.randomUUID();
+        UUID salesId = UUID.randomUUID();
+
+        Product product = new Product();
+        product.setId(productId);
+        product.setProjectId(UUID.randomUUID());
+        product.setCode("A101");
+        product.setType(ProductType.APARTMENT);
+        product.setStatus(ProductStatus.RESERVED);
+        product.setLockedBy(salesId);
+        product.setLockExpiresAt(java.time.LocalDate.now().plusDays(2));
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductResponse res = productService.unlock(productId, salesId, "SALES");
+
+        assertThat(res.status()).isEqualTo(ProductStatus.AVAILABLE);
+        assertThat(res.lockedBy()).isNull();
+        assertThat(res.lockExpiresAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("unlock fails when actor is another sales person")
+    void unlock_whenAnotherSales_throwsForbidden() {
+        UUID productId = UUID.randomUUID();
+        UUID salesId1 = UUID.randomUUID();
+        UUID salesId2 = UUID.randomUUID();
+
+        Product product = new Product();
+        product.setId(productId);
+        product.setStatus(ProductStatus.RESERVED);
+        product.setLockedBy(salesId1);
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.unlock(productId, salesId2, "SALES"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("You do not have permission to unlock this product");
     }
 }

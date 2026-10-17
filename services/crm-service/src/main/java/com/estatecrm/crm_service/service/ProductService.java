@@ -1,20 +1,27 @@
 package com.estatecrm.crm_service.service;
 
 import com.estatecrm.crm_service.dto.CreateProductRequest;
+import com.estatecrm.crm_service.dto.LockProductRequest;
 import com.estatecrm.crm_service.dto.ProductResponse;
 import com.estatecrm.crm_service.dto.UpdateProductRequest;
 import com.estatecrm.crm_service.entity.Product;
+import com.estatecrm.crm_service.entity.ProductReservation;
 import com.estatecrm.crm_service.enums.ProductStatus;
 import com.estatecrm.crm_service.enums.ProductType;
+import com.estatecrm.crm_service.enums.ReservationStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.ContactDetailRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
 import com.estatecrm.crm_service.repository.ProductRepository;
+import com.estatecrm.crm_service.repository.ProductReservationRepository;
 import com.estatecrm.crm_service.repository.ProjectRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,6 +42,7 @@ public class ProductService {
     private final ContactDetailRepository contactDetailRepository;
     private final ImageStorageService imageStorageService;
     private final ProjectAssignmentService projectAssignmentService;
+    private final ProductReservationRepository productReservationRepository;
 
     public ProductService(
             ProductRepository productRepository,
@@ -42,13 +50,15 @@ public class ProductService {
             LeadRepository leadRepository,
             ContactDetailRepository contactDetailRepository,
             ImageStorageService imageStorageService,
-            ProjectAssignmentService projectAssignmentService) {
+            ProjectAssignmentService projectAssignmentService,
+            ProductReservationRepository productReservationRepository) {
         this.productRepository = productRepository;
         this.projectRepository = projectRepository;
         this.leadRepository = leadRepository;
         this.contactDetailRepository = contactDetailRepository;
         this.imageStorageService = imageStorageService;
         this.projectAssignmentService = projectAssignmentService;
+        this.productReservationRepository = productReservationRepository;
     }
 
     @Transactional
@@ -215,5 +225,115 @@ public class ProductService {
         if (!ADMIN.equals(role) && !MANAGER.equals(role)) {
             throw new ResponseStatusException(FORBIDDEN, "Only ADMIN/MANAGER can manage products");
         }
+    }
+
+    @Transactional
+    public ProductResponse lock(UUID productId, LockProductRequest request, UUID actorId, String role) {
+        Product product = find(productId);
+
+        if (product.getStatus() == ProductStatus.SOLD) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot lock a sold product");
+        }
+
+        LocalDate today = LocalDate.now();
+        if (product.getStatus() == ProductStatus.RESERVED) {
+            if (product.getLockExpiresAt() != null && product.getLockExpiresAt().isBefore(today)) {
+                productReservationRepository.findFirstByProductIdAndStatusOrderByPriorityAsc(
+                        productId, ReservationStatus.ACTIVE).ifPresent(r -> {
+                    r.setStatus(ReservationStatus.EXPIRED);
+                    productReservationRepository.save(r);
+                });
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Product is already reserved until " + product.getLockExpiresAt());
+            }
+        }
+
+        LocalDate expiry = request.expiryDate();
+        if (expiry == null) {
+            int days = (request.days() != null && request.days() > 0) ? request.days() : 2;
+            expiry = today.plusDays(days);
+        }
+        if (expiry.isBefore(today)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expiry date cannot be in the past");
+        }
+
+        BigDecimal deposit = request.depositAmount() != null ? request.depositAmount() : BigDecimal.ZERO;
+
+        product.setStatus(ProductStatus.RESERVED);
+        product.setLockedBy(actorId);
+        product.setLockedCustomerId(request.customerId());
+        product.setLockExpiresAt(expiry);
+        product.setLockDepositAmount(deposit);
+        product.setUpdatedBy(actorId);
+        Product saved = productRepository.save(product);
+
+        ProductReservation reservation = new ProductReservation();
+        reservation.setProductId(productId);
+        reservation.setCustomerId(request.customerId());
+        reservation.setSalesId(actorId);
+        reservation.setPriority(1);
+        reservation.setStatus(ReservationStatus.ACTIVE);
+        reservation.setDepositAmount(deposit);
+        reservation.setExpiryDate(expiry);
+        reservation.setNotes(request.notes());
+        productReservationRepository.save(reservation);
+
+        return ProductResponse.from(saved);
+    }
+
+    @Transactional
+    public ProductResponse unlock(UUID productId, UUID actorId, String role) {
+        Product product = find(productId);
+
+        if (product.getStatus() != ProductStatus.RESERVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product is not reserved");
+        }
+
+        boolean isOwner = product.getLockedBy() != null && product.getLockedBy().equals(actorId);
+        boolean isPrivileged = ADMIN.equals(role) || MANAGER.equals(role);
+        if (!isOwner && !isPrivileged) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not have permission to unlock this product");
+        }
+
+        product.setStatus(ProductStatus.AVAILABLE);
+        product.setLockedBy(null);
+        product.setLockedCustomerId(null);
+        product.setLockExpiresAt(null);
+        product.setLockDepositAmount(null);
+        product.setUpdatedBy(actorId);
+        Product saved = productRepository.save(product);
+
+        productReservationRepository.findFirstByProductIdAndStatusOrderByPriorityAsc(
+                productId, ReservationStatus.ACTIVE).ifPresent(r -> {
+            r.setStatus(ReservationStatus.CANCELLED);
+            productReservationRepository.save(r);
+        });
+
+        return ProductResponse.from(saved);
+    }
+
+    @Transactional
+    public int releaseExpiredReservations() {
+        LocalDate today = LocalDate.now();
+        List<ProductReservation> expired = productReservationRepository
+                .findByStatusAndExpiryDateBefore(ReservationStatus.ACTIVE, today);
+        for (ProductReservation res : expired) {
+            res.setStatus(ReservationStatus.EXPIRED);
+            productReservationRepository.save(res);
+
+            productRepository.findById(res.getProductId()).ifPresent(prod -> {
+                if (prod.getStatus() == ProductStatus.RESERVED &&
+                    (prod.getLockExpiresAt() == null || prod.getLockExpiresAt().isBefore(today))) {
+                    prod.setStatus(ProductStatus.AVAILABLE);
+                    prod.setLockedBy(null);
+                    prod.setLockedCustomerId(null);
+                    prod.setLockExpiresAt(null);
+                    prod.setLockDepositAmount(null);
+                    productRepository.save(prod);
+                }
+            });
+        }
+        return expired.size();
     }
 }

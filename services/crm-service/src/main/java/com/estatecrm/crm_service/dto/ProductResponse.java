@@ -4,6 +4,7 @@ import com.estatecrm.crm_service.entity.Product;
 import com.estatecrm.crm_service.enums.ProductStatus;
 import com.estatecrm.crm_service.enums.ProductType;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -19,6 +20,10 @@ public record ProductResponse(
         String direction,
         String imageUrl,
         ProductStatus status,
+        UUID lockedBy,
+        UUID lockedCustomerId,
+        LocalDate lockExpiresAt,
+        BigDecimal lockDepositAmount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 
@@ -35,6 +40,10 @@ public record ProductResponse(
                 product.getDirection(),
                 product.getImageUrl(),
                 product.getStatus(),
+                product.getLockedBy(),
+                product.getLockedCustomerId(),
+                product.getLockExpiresAt(),
+                product.getLockDepositAmount(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }

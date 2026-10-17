@@ -1,6 +1,7 @@
 package com.estatecrm.crm_service.controller;
 
 import com.estatecrm.crm_service.dto.CreateProductRequest;
+import com.estatecrm.crm_service.dto.LockProductRequest;
 import com.estatecrm.crm_service.dto.ProductResponse;
 import com.estatecrm.crm_service.dto.UpdateProductRequest;
 import com.estatecrm.crm_service.enums.ProductStatus;
@@ -88,6 +89,21 @@ public class ProductController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID productId, @AuthenticationPrincipal Jwt jwt) {
         productService.delete(productId, actorId(jwt), role(jwt));
+    }
+
+    @PostMapping("/{productId}/lock")
+    public ProductResponse lock(
+            @PathVariable UUID productId,
+            @Valid @RequestBody LockProductRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return productService.lock(productId, request, actorId(jwt), role(jwt));
+    }
+
+    @PostMapping("/{productId}/unlock")
+    public ProductResponse unlock(
+            @PathVariable UUID productId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return productService.unlock(productId, actorId(jwt), role(jwt));
     }
 
     private UUID actorId(Jwt jwt) {
