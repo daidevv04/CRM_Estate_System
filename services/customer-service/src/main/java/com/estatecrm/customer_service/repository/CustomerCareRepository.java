@@ -25,4 +25,31 @@ public interface CustomerCareRepository
             return cb.and(conditions.toArray(new Predicate[0]));
         };
     }
+
+    static Specification<CustomerCare> filterAll(
+            UUID ownerId, java.util.Collection<UUID> allowedOwnerIds, CareType type, String keyword) {
+        return (root, query, cb) -> {
+            if (query != null && Long.class != query.getResultType() && long.class != query.getResultType()) {
+                root.fetch("customer", jakarta.persistence.criteria.JoinType.LEFT);
+            }
+            List<Predicate> conditions = new ArrayList<>();
+            if (allowedOwnerIds != null) {
+                conditions.add(root.get("customer").get("ownerId").in(allowedOwnerIds));
+            }
+            if (ownerId != null) {
+                conditions.add(cb.equal(root.get("customer").get("ownerId"), ownerId));
+            }
+            if (type != null) {
+                conditions.add(cb.equal(root.get("type"), type));
+            }
+            if (keyword != null && !keyword.isBlank()) {
+                String pattern = "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%";
+                conditions.add(cb.or(
+                        cb.like(cb.lower(root.get("content")), pattern),
+                        cb.like(cb.lower(root.get("customer").get("fullName")), pattern),
+                        cb.like(cb.lower(root.get("customer").get("phone")), pattern)));
+            }
+            return cb.and(conditions.toArray(new Predicate[0]));
+        };
+    }
 }

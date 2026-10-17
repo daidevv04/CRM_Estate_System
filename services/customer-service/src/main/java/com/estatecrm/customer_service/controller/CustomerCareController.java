@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/customers/{customerId}/cares")
+@RequestMapping("/customers")
 public class CustomerCareController {
 
     private final CustomerCareService customerCareService;
@@ -32,7 +32,17 @@ public class CustomerCareController {
         this.customerCareService = customerCareService;
     }
 
-    @PostMapping
+    @GetMapping("/cares")
+    public Page<CustomerCareResponse> listAll(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) UUID ownerId,
+            @RequestParam(required = false) CareType type,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return customerCareService.listAll(actorId(jwt), role(jwt), ownerId, type, keyword, pageable);
+    }
+
+    @PostMapping("/{customerId}/cares")
     @ResponseStatus(HttpStatus.CREATED)
     public CustomerCareResponse create(
             @PathVariable UUID customerId,
@@ -41,16 +51,16 @@ public class CustomerCareController {
         return customerCareService.create(customerId, request, actorId(jwt), role(jwt));
     }
 
-    @GetMapping
+    @GetMapping("/{customerId}/cares")
     public Page<CustomerCareResponse> list(
             @PathVariable UUID customerId,
             @RequestParam(required = false) CareType type,
             @AuthenticationPrincipal Jwt jwt,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return customerCareService.list(customerId, type, actorId(jwt), role(jwt), pageable);
     }
 
-    @DeleteMapping("/{careId}")
+    @DeleteMapping("/{customerId}/cares/{careId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
             @PathVariable UUID customerId, @PathVariable UUID careId, @AuthenticationPrincipal Jwt jwt) {
