@@ -55,6 +55,9 @@ class DealServiceTests {
     @Mock
     private com.estatecrm.crm_service.repository.ProductReservationRepository productReservationRepository;
 
+    @Mock
+    private DealCommissionService commissionService;
+
     @InjectMocks
     private DealService dealService;
 

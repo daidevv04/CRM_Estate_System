@@ -94,7 +94,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/login", "/auth/refresh", "/auth/logout", "/auth/password-reset/**",
                                 "/auth/otp/send", "/auth/otp/verify", "/auth/2fa/verify",
-                                "/actuator/health", "/error")
+                                "/actuator/health", "/error", "/users/internal/**")
                         .permitAll()
                         .requestMatchers("/users/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/users").authenticated()

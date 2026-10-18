@@ -37,6 +37,15 @@ public class CommissionController {
         return commissionService.getAllCommissions();
     }
 
+    @PostMapping("/commissions/backfill")
+    public Map<String, Object> backfillCommissions(@AuthenticationPrincipal Jwt jwt) {
+        if (!dealService.isPrivileged(role(jwt))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ Quản lý / Quản trị viên mới được thao tác");
+        }
+        int count = commissionService.backfillCommissionsForExistingDeals();
+        return Map.of("backfilledCount", count);
+    }
+
     @GetMapping("/deals/{dealId}/commission")
     public DealCommissionResponse getDealCommission(
             @PathVariable UUID dealId,

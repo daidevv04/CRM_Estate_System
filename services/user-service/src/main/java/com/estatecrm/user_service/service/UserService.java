@@ -132,6 +132,12 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public List<UserResponse> listSalesStaff() {
+        return userRepository.findByRoleInAndStatus(List.of(UserRole.SALES), UserStatus.ACTIVE)
+                .stream().map(UserResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
     public UserResponse get(UUID userId, UUID actorId, String role) {
         User user = find(userId);
         if (!"ADMIN".equalsIgnoreCase(role)) {

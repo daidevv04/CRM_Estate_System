@@ -45,6 +45,16 @@ public class UserController {
         return userService.list(actorId(jwt), actorRole(jwt));
     }
 
+    @GetMapping("/sales")
+    public List<UserResponse> listSalesStaff() {
+        return userService.listSalesStaff();
+    }
+
+    @GetMapping("/internal/sales-staff")
+    public List<UserResponse> internalSalesStaff() {
+        return userService.listSalesStaff();
+    }
+
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal Jwt jwt) {
         return userService.get(actorId(jwt));

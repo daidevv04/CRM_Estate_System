@@ -222,14 +222,43 @@ public class DealCommissionService {
         return DealCommissionMilestoneResponse.from(saved);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
+    public void syncSalesIdForDeal(UUID dealId, UUID salesId) {
+        commissionRepository.findByDealId(dealId).ifPresent(c -> {
+            c.setSalesId(salesId);
+            commissionRepository.save(c);
+        });
+    }
+
+    @Transactional
+    public int backfillCommissionsForExistingDeals() {
+        List<Deal> deals = dealRepository.findAll();
+        int count = 0;
+        for (Deal d : deals) {
+            if (d.getContractValue() != null && d.getContractValue().compareTo(BigDecimal.ZERO) > 0) {
+                if (commissionRepository.findByDealId(d.getId()).isEmpty()) {
+                    initCommissionForDeal(d);
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    @Transactional
     public Map<String, Object> getMyCommissions(UUID salesId) {
+        if (commissionRepository.count() == 0) {
+            backfillCommissionsForExistingDeals();
+        }
         List<DealCommission> list = commissionRepository.findBySalesIdOrderByCreatedAtDesc(salesId);
         return buildCommissionsPayload(list);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String, Object> getAllCommissions() {
+        if (commissionRepository.count() == 0) {
+            backfillCommissionsForExistingDeals();
+        }
         List<DealCommission> list = commissionRepository.findAllByOrderByCreatedAtDesc();
         return buildCommissionsPayload(list);
     }

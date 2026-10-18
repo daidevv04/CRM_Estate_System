@@ -42,18 +42,21 @@ public class DealService {
     private final ProductRepository productRepository;
     private final ProjectAssignmentService projectAssignmentService;
     private final ProductReservationRepository productReservationRepository;
+    private final DealCommissionService commissionService;
 
     public DealService(
             DealRepository dealRepository,
             LeadRepository leadRepository,
             ProductRepository productRepository,
             ProjectAssignmentService projectAssignmentService,
-            ProductReservationRepository productReservationRepository) {
+            ProductReservationRepository productReservationRepository,
+            DealCommissionService commissionService) {
         this.dealRepository = dealRepository;
         this.leadRepository = leadRepository;
         this.productRepository = productRepository;
         this.projectAssignmentService = projectAssignmentService;
         this.productReservationRepository = productReservationRepository;
+        this.commissionService = commissionService;
     }
 
     @Transactional
@@ -109,7 +112,11 @@ public class DealService {
         }
         deal.setNote(request.note());
         deal.setCreatedBy(actorId);
-        return DealResponse.from(dealRepository.save(deal));
+        Deal saved = dealRepository.save(deal);
+        if (saved.getContractValue() != null && saved.getContractValue().compareTo(BigDecimal.ZERO) > 0) {
+            commissionService.initCommissionForDeal(saved);
+        }
+        return DealResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -191,6 +198,7 @@ public class DealService {
         }
         if (request.salesId() != null && privileged) {
             deal.setSalesId(request.salesId());
+            commissionService.syncSalesIdForDeal(deal.getId(), request.salesId());
         }
 
         if (request.approvalStatus() != null
@@ -215,7 +223,12 @@ public class DealService {
         }
 
         deal.setUpdatedBy(actorId);
-        return DealResponse.from(dealRepository.save(deal));
+        Deal saved = dealRepository.save(deal);
+        if (saved.getContractValue() != null && saved.getContractValue().compareTo(BigDecimal.ZERO) > 0) {
+            commissionService.initCommissionForDeal(saved);
+            commissionService.syncMilestonesFromPayments(saved.getId());
+        }
+        return DealResponse.from(saved);
     }
 
     @Transactional
