@@ -38,14 +38,14 @@ public class DealCommissionService {
             DealPaymentRepository paymentRepository,
             LeadRepository leadRepository,
             DealRepository dealRepository,
-            ObjectMapper objectMapper) {
+            @org.springframework.lang.Nullable ObjectMapper objectMapper) {
         this.commissionRepository = commissionRepository;
         this.milestoneRepository = milestoneRepository;
         this.policyRepository = policyRepository;
         this.paymentRepository = paymentRepository;
         this.leadRepository = leadRepository;
         this.dealRepository = dealRepository;
-        this.objectMapper = objectMapper;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
     }
 
     @Transactional
