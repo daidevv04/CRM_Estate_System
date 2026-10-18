@@ -35,6 +35,7 @@ public class ProductService {
 
     private static final String ADMIN = "ADMIN";
     private static final String MANAGER = "MANAGER";
+    private static final String SALES = "SALES";
 
     private final ProductRepository productRepository;
     private final ProjectRepository projectRepository;
@@ -116,7 +117,7 @@ public class ProductService {
             String role,
             Pageable pageable) {
         java.util.List<UUID> allowedProjectIds = null;
-        if (MANAGER.equals(role) && actorId != null) {
+        if ((MANAGER.equals(role) || SALES.equals(role)) && actorId != null) {
             java.util.List<UUID> assigned = projectAssignmentService.getAssignedProjectIds(actorId);
             if (assigned.isEmpty()) {
                 return Page.empty(pageable);
@@ -208,7 +209,7 @@ public class ProductService {
 
     private Product findAndVerifyAccess(UUID productId, UUID actorId, String role) {
         Product product = find(productId);
-        if (MANAGER.equals(role) && actorId != null) {
+        if ((MANAGER.equals(role) || SALES.equals(role)) && actorId != null) {
             if (!projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Product belongs to a project you are not assigned to");
             }

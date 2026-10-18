@@ -24,6 +24,7 @@ public class ProjectService {
 
     private static final String ADMIN = "ADMIN";
     private static final String MANAGER = "MANAGER";
+    private static final String SALES = "SALES";
 
     private final ProjectRepository projectRepository;
     private final ProductRepository productRepository;
@@ -63,7 +64,7 @@ public class ProjectService {
     public Page<ProjectResponse> list(
             ProjectStatus status, String investor, String keyword, UUID actorId, String role, Pageable pageable) {
         java.util.List<UUID> allowedProjectIds = null;
-        if (MANAGER.equals(role) && actorId != null) {
+        if ((MANAGER.equals(role) || SALES.equals(role)) && actorId != null) {
             allowedProjectIds = projectAssignmentService.getAssignedProjectIds(actorId);
             if (allowedProjectIds.isEmpty()) {
                 return Page.empty(pageable);
@@ -81,7 +82,7 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public ProjectResponse get(UUID projectId, UUID actorId, String role) {
-        if (MANAGER.equals(role) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, projectId)) {
+        if ((MANAGER.equals(role) || SALES.equals(role)) && actorId != null && !projectAssignmentService.isAssignedToProject(actorId, projectId)) {
             throw new ResponseStatusException(FORBIDDEN, "Project is not assigned to you");
         }
         return ProjectResponse.from(find(projectId));
