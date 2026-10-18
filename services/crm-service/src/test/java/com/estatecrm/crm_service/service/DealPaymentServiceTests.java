@@ -36,6 +36,9 @@ class DealPaymentServiceTests {
     @Mock
     private DealService dealService;
 
+    @Mock
+    private DealCommissionService commissionService;
+
     @InjectMocks
     private DealPaymentService paymentService;
 

@@ -19,10 +19,15 @@ public class DealPaymentService {
 
     private final DealPaymentRepository paymentRepository;
     private final DealService dealService;
+    private final DealCommissionService commissionService;
 
-    public DealPaymentService(DealPaymentRepository paymentRepository, DealService dealService) {
+    public DealPaymentService(
+            DealPaymentRepository paymentRepository,
+            DealService dealService,
+            DealCommissionService commissionService) {
         this.paymentRepository = paymentRepository;
         this.dealService = dealService;
+        this.commissionService = commissionService;
     }
 
     @Transactional
@@ -55,6 +60,10 @@ public class DealPaymentService {
                     : PaymentStatus.PARTIAL);
             deal.setUpdatedBy(actorId);
         }
+
+        // Tự động kiểm tra và mở khóa mốc giải ngân hoa hồng (ELIGIBLE) nếu đạt ngưỡng thanh toán
+        commissionService.syncMilestonesFromPayments(dealId);
+
         return DealPaymentResponse.from(saved);
     }
 
