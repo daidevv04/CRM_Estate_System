@@ -12,3 +12,13 @@
 Rollback: stop writes first. Keep the unique index when rolling back application binaries unless it is proven to cause the incident. Do not restore an old whole-database backup after new receipts have been recorded. Reconcile affected records individually.
 
 The audit is read-only; it does not repair historical data. If `deal_payments` is absent in an environment, resolve the existing schema mismatch before running payment reconciliation.
+
+## Automated PostgreSQL checks
+
+With the database credentials and JWT secret loaded into the environment, set `IT_INFRA=up`, `CONSUL_ENABLED=false`, `SPRING_CLOUD_CONFIG_ENABLED=false` and run `mvn test` in `services/crm-service`.
+
+The CRM integration tests create a uniquely named `crm_test_*` schema, apply V1 through V10 there, and configure every application connection to use only that schema. The database role needs permission to create and drop schemas. Normal context shutdown drops the test schema; an interrupted JVM may leave a `crm_test_*` schema requiring manual cleanup. Never run the old version of `CrmRepositorySchemaTests`, which used the default schema for cleanup.
+
+`SalesIntegrityIntegrationTests` exercises concurrent reservations, concurrent approvals, concurrent receipts, expiry versus approval, sold-inventory protection, customer ownership and the partial unique index. Other service context tests validate their configured infrastructure; these checks do not replace browser acceptance testing.
+
+V10 records the previously provisioned `deal_payments` table so fresh databases can be initialized from the repository. Existing payment rows are preserved.

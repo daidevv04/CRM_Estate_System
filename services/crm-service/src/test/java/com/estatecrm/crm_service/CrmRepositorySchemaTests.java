@@ -37,19 +37,16 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.test.context.ContextConfiguration;
 
 /**
- * Chay tren DB that (Supabase) de kiem chung entity <-> schema va hanh vi rang
- * buoc. Chi bat khi IT_INFRA=up, cung quy uoc voi 2 service kia.
- *
- * Dat truoc khi chay:
- *   set -a && . ./.env && set +a && IT_INFRA=up mvn test
- *
- * Du lieu test tu xoa o @AfterAll theo dung thu tu FK.
+ * Runs migrations and repository checks in a disposable schema, never public.
+ * Enable with IT_INFRA=up and the configured PostgreSQL credentials.
  */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "IT_INFRA", matches = "up")
+@ContextConfiguration(initializers = IsolatedCrmDatabase.class)
 class CrmRepositorySchemaTests {
 
     @Autowired
@@ -115,6 +112,7 @@ class CrmRepositorySchemaTests {
         Lead lead = new Lead();
         lead.setCustomerId(CUSTOMER);
         lead.setProductId(productId);
+        lead.setProjectId(productRepository.findById(productId).orElseThrow().getProjectId());
         lead.setAssignedTo(ACTOR);
         lead.setExpectedValue(new BigDecimal("3000000000.00"));
         lead.setCloseDate(LocalDate.now().plusDays(30));
@@ -283,6 +281,7 @@ class CrmRepositorySchemaTests {
         Lead lead = new Lead();
         lead.setCustomerId(CUSTOMER);
         lead.setProductId(UUID.randomUUID());
+        lead.setProjectId(newProject("Missing product").getId());
         lead.setAssignedTo(ACTOR);
 
         assertThatThrownBy(() -> leadRepository.saveAndFlush(lead))
