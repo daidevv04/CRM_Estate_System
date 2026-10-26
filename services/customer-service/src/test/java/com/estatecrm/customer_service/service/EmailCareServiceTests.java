@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.estatecrm.customer_service.dto.CreateEmailCareRequest;
+import com.estatecrm.customer_service.dto.SendCustomerEmailRequest;
 import com.estatecrm.customer_service.dto.UpdateEmailCareRequest;
 import com.estatecrm.customer_service.entity.Customer;
 import com.estatecrm.customer_service.entity.CustomerCare;
@@ -105,6 +106,27 @@ class EmailCareServiceTests {
     }
 
     @Test
+    void sendToCustomerReplacesNameInSubjectAndBody() {
+        Customer customer = new Customer();
+        customer.setFullName("Nguyen Van An");
+        customer.setEmail(TO);
+        when(customerService.requireAccess(CUSTOMER_ID, ACTOR, "SALES")).thenReturn(customer);
+        EmailTemplate template = new EmailTemplate();
+        template.setId(UUID.randomUUID());
+        template.setSubject("Xin chao {{customer_name}}");
+        template.setBody("<p>Chao {{customer_name}}</p>");
+        when(emailTemplateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+        when(customerCareRepository.save(any(CustomerCare.class))).thenAnswer(call -> call.getArgument(0));
+        stubSave();
+
+        emailCareService.sendToCustomer(CUSTOMER_ID,
+                new SendCustomerEmailRequest(template.getId(), null, null, null, null), ACTOR, "SALES");
+
+        verify(mailClient).send(TO, "Xin chao Nguyen Van An", "<p>Chao Nguyen Van An</p>",
+                "<p>Chao Nguyen Van An</p>", null, null);
+    }
+
+    @Test
     void updateToSentResendsMail() {
         EmailCare existing = emailCare(EmailCareStatus.FAILED);
         stubCare();
@@ -138,6 +160,7 @@ class EmailCareServiceTests {
     private void stubCare() {
         Customer customer = new Customer();
         customer.setId(CUSTOMER_ID);
+        customer.setFullName("Nguyen Van An");
         CustomerCare care = new CustomerCare();
         care.setId(CARE_ID);
         care.setCustomer(customer);
@@ -151,6 +174,7 @@ class EmailCareServiceTests {
     private EmailCare emailCare(EmailCareStatus status) {
         Customer customer = new Customer();
         customer.setId(CUSTOMER_ID);
+        customer.setFullName("Nguyen Van An");
         CustomerCare care = new CustomerCare();
         care.setId(CARE_ID);
         care.setCustomer(customer);

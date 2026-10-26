@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.BAD_GATEWAY;
@@ -71,6 +72,8 @@ public class EmailCareService {
             throw new ResponseStatusException(
                     BAD_REQUEST, "subject and body are required when no template is given");
         }
+        subject = personalizeSubject(subject, care.getCustomer().getFullName());
+        body = personalizeBody(body, care.getCustomer().getFullName());
 
         EmailCare careMail = new EmailCare();
         careMail.setCustomerCare(care);
@@ -122,6 +125,8 @@ public class EmailCareService {
             throw new ResponseStatusException(
                     BAD_REQUEST, "Tiêu đề và nội dung email không được để trống");
         }
+        subject = personalizeSubject(subject, customer.getFullName());
+        body = personalizeBody(body, customer.getFullName());
 
         CustomerCare care = new CustomerCare();
         care.setCustomer(customer);
@@ -200,6 +205,14 @@ public class EmailCareService {
     @Transactional
     public void delete(UUID customerId, UUID emailId, UUID actorId, String role) {
         emailCareRepository.delete(requireEmail(customerId, emailId, actorId, role));
+    }
+
+    private String personalizeSubject(String subject, String customerName) {
+        return subject.replace("{{customer_name}}", customerName);
+    }
+
+    private String personalizeBody(String body, String customerName) {
+        return body.replace("{{customer_name}}", HtmlUtils.htmlEscape(customerName));
     }
 
     private CustomerCare requireCare(UUID customerId, UUID careId, UUID actorId, String role) {
