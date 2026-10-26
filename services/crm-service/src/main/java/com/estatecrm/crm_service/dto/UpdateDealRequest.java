@@ -16,6 +16,7 @@ public record UpdateDealRequest(
         @PositiveOrZero BigDecimal depositAmount,
         LocalDate depositDate,
         LocalDate signedDate,
+        // Compatibility with older clients; status is derived from recorded payments.
         PaymentStatus paymentStatus,
         PaymentMethod paymentMethod,
         ApprovalStatus approvalStatus,

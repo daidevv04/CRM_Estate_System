@@ -11,6 +11,7 @@ import com.estatecrm.crm_service.enums.ProductType;
 import com.estatecrm.crm_service.enums.ReservationStatus;
 import com.estatecrm.crm_service.exception.ConflictException;
 import com.estatecrm.crm_service.repository.ContactDetailRepository;
+import com.estatecrm.crm_service.repository.DealRepository;
 import com.estatecrm.crm_service.repository.LeadRepository;
 import com.estatecrm.crm_service.repository.ProductRepository;
 import com.estatecrm.crm_service.repository.ProductReservationRepository;
@@ -44,6 +45,7 @@ public class ProductService {
     private final ImageStorageService imageStorageService;
     private final ProjectAssignmentService projectAssignmentService;
     private final ProductReservationRepository productReservationRepository;
+    private final DealRepository dealRepository;
 
     public ProductService(
             ProductRepository productRepository,
@@ -52,7 +54,8 @@ public class ProductService {
             ContactDetailRepository contactDetailRepository,
             ImageStorageService imageStorageService,
             ProjectAssignmentService projectAssignmentService,
-            ProductReservationRepository productReservationRepository) {
+            ProductReservationRepository productReservationRepository,
+            DealRepository dealRepository) {
         this.productRepository = productRepository;
         this.projectRepository = projectRepository;
         this.leadRepository = leadRepository;
@@ -60,6 +63,7 @@ public class ProductService {
         this.imageStorageService = imageStorageService;
         this.projectAssignmentService = projectAssignmentService;
         this.productReservationRepository = productReservationRepository;
+        this.dealRepository = dealRepository;
     }
 
     @Transactional
@@ -84,6 +88,9 @@ public class ProductService {
         product.setBedroom(request.bedroom());
         product.setDirection(request.direction() == null ? null : request.direction().name());
         product.setImageUrl(request.imageUrl());
+        if (request.status() == ProductStatus.RESERVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use the reservation action to reserve a product");
+        }
         if (request.status() != null) {
             product.setStatus(request.status());
         }
@@ -135,8 +142,10 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public ProductResponse get(UUID productId) {
-        return ProductResponse.from(find(productId));
+    public ProductResponse get(UUID productId, UUID actorId, String role) {
+        Product product = find(productId);
+        verifyProjectAccess(product, actorId, role);
+        return ProductResponse.from(product);
     }
 
     @Transactional
@@ -174,6 +183,14 @@ public class ProductService {
             product.setImageUrl(request.imageUrl());
         }
         if (request.status() != null) {
+            if (request.status() != product.getStatus()) {
+                if (product.getStatus() == ProductStatus.RESERVED || request.status() == ProductStatus.RESERVED) {
+                    throw new ConflictException("Use the reservation/unlock actions to change a reservation");
+                }
+                if (dealRepository.hasOtherApprovedDeal(productId, null)) {
+                    throw new ConflictException("Product belongs to an approved contract");
+                }
+            }
             product.setStatus(request.status());
         }
         product.setUpdatedBy(actorId);
@@ -208,13 +225,24 @@ public class ProductService {
     }
 
     private Product findAndVerifyAccess(UUID productId, UUID actorId, String role) {
-        Product product = find(productId);
-        if ((MANAGER.equals(role) || SALES.equals(role)) && actorId != null) {
+        Product product = productRepository.findWithLockById(productId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found"));
+        verifyProjectAccess(product, actorId, role);
+        return product;
+    }
+
+    private void verifyProjectAccess(Product product, UUID actorId, String role) {
+        if (!ADMIN.equals(role) && !MANAGER.equals(role) && !SALES.equals(role)) {
+            throw new ResponseStatusException(FORBIDDEN, "Unsupported role");
+        }
+        if (MANAGER.equals(role) || SALES.equals(role)) {
+            if (actorId == null) {
+                throw new ResponseStatusException(FORBIDDEN, "Actor is required");
+            }
             if (!projectAssignmentService.isAssignedToProject(actorId, product.getProjectId())) {
                 throw new ResponseStatusException(FORBIDDEN, "Product belongs to a project you are not assigned to");
             }
         }
-        return product;
     }
 
     private Product find(UUID productId) {
@@ -230,10 +258,13 @@ public class ProductService {
 
     @Transactional
     public ProductResponse lock(UUID productId, LockProductRequest request, UUID actorId, String role) {
-        Product product = find(productId);
+        Product product = findAndVerifyAccess(productId, actorId, role);
 
         if (product.getStatus() == ProductStatus.SOLD) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot lock a sold product");
+        }
+        if (dealRepository.hasOtherApprovedDeal(productId, null)) {
+            throw new ConflictException("Product belongs to an approved contract");
         }
 
         LocalDate today = LocalDate.now();
@@ -243,10 +274,10 @@ public class ProductService {
                         productId, ReservationStatus.ACTIVE).ifPresent(r -> {
                     r.setStatus(ReservationStatus.EXPIRED);
                     productReservationRepository.save(r);
+                    productReservationRepository.flush();
                 });
             } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Product is already reserved until " + product.getLockExpiresAt());
+                throw new ConflictException("Product is already reserved until " + product.getLockExpiresAt());
             }
         }
 
@@ -285,7 +316,7 @@ public class ProductService {
 
     @Transactional
     public ProductResponse unlock(UUID productId, UUID actorId, String role) {
-        Product product = find(productId);
+        Product product = findAndVerifyAccess(productId, actorId, role);
 
         if (product.getStatus() != ProductStatus.RESERVED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product is not reserved");
@@ -319,22 +350,27 @@ public class ProductService {
         LocalDate today = LocalDate.now();
         List<ProductReservation> expired = productReservationRepository
                 .findByStatusAndExpiryDateBefore(ReservationStatus.ACTIVE, today);
+        int released = 0;
+        expired.sort(java.util.Comparator.comparing(ProductReservation::getProductId));
         for (ProductReservation res : expired) {
-            res.setStatus(ReservationStatus.EXPIRED);
-            productReservationRepository.save(res);
-
-            productRepository.findById(res.getProductId()).ifPresent(prod -> {
+            Product prod = productRepository.findWithLockById(res.getProductId()).orElse(null);
+            if (prod != null) {
                 if (prod.getStatus() == ProductStatus.RESERVED &&
-                    (prod.getLockExpiresAt() == null || prod.getLockExpiresAt().isBefore(today))) {
+                    prod.getLockExpiresAt() != null && prod.getLockExpiresAt().isBefore(today) &&
+                    res.getExpiryDate().equals(prod.getLockExpiresAt()) &&
+                    java.util.Objects.equals(res.getCustomerId(), prod.getLockedCustomerId())) {
+                    res.setStatus(ReservationStatus.EXPIRED);
+                    productReservationRepository.save(res);
                     prod.setStatus(ProductStatus.AVAILABLE);
                     prod.setLockedBy(null);
                     prod.setLockedCustomerId(null);
                     prod.setLockExpiresAt(null);
                     prod.setLockDepositAmount(null);
                     productRepository.save(prod);
+                    released++;
                 }
-            });
+            }
         }
-        return expired.size();
+        return released;
     }
 }

@@ -20,6 +20,9 @@ public interface ProductRepository
 
     boolean existsByProjectIdAndCode(UUID projectId, String code);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<Product> findWithLockById(UUID productId);
+
     @org.springframework.data.jpa.repository.Query("SELECT p.id FROM Product p WHERE p.projectId IN :projectIds")
     List<UUID> findIdsByProjectIdIn(@org.springframework.data.repository.query.Param("projectIds") java.util.Collection<UUID> projectIds);
 

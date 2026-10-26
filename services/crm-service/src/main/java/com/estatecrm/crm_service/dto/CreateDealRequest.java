@@ -18,6 +18,7 @@ public record CreateDealRequest(
         @PositiveOrZero BigDecimal depositAmount,
         LocalDate depositDate,
         LocalDate signedDate,
+        // Compatibility with older clients; status is derived from recorded payments.
         PaymentStatus paymentStatus,
         PaymentMethod paymentMethod,
         @Size(max = 500) String fileUrl,

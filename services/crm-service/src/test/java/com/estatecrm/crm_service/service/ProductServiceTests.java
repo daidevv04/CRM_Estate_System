@@ -52,7 +52,60 @@ class ProductServiceTests {
     @Mock
     private com.estatecrm.crm_service.repository.ProductReservationRepository productReservationRepository;
 
+    @Mock
+    private com.estatecrm.crm_service.repository.DealRepository dealRepository;
+
     private ProductService productService;
+
+    @Test
+    void getAndUnlockRejectProductsOutsideProjectScope() {
+        when(projectAssignmentService.isAssignedToProject(any(), any())).thenReturn(false);
+        UUID id = UUID.randomUUID();
+        Product product = new Product();
+        product.setId(id);
+        product.setProjectId(UUID.randomUUID());
+        when(productRepository.findById(id)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(id)).thenReturn(Optional.of(product));
+        assertThatThrownBy(() -> productService.get(id, UUID.randomUUID(), "SALES"))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("not assigned to");
+        assertThatThrownBy(() -> productService.unlock(id, UUID.randomUUID(), "MANAGER"))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("not assigned to");
+        org.mockito.Mockito.verifyNoInteractions(productReservationRepository);
+        org.mockito.Mockito.verify(productRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void expiryScanCannotReleaseProductAlreadySoldByApproval() {
+        UUID id = UUID.randomUUID();
+        var reservation = new com.estatecrm.crm_service.entity.ProductReservation();
+        reservation.setProductId(id);
+        reservation.setStatus(com.estatecrm.crm_service.enums.ReservationStatus.ACTIVE);
+        reservation.setExpiryDate(java.time.LocalDate.now().minusDays(1));
+        when(productReservationRepository.findByStatusAndExpiryDateBefore(
+                com.estatecrm.crm_service.enums.ReservationStatus.ACTIVE, java.time.LocalDate.now()))
+                .thenReturn(new java.util.ArrayList<>(List.of(reservation)));
+        Product sold = new Product();
+        sold.setStatus(ProductStatus.SOLD);
+        when(productRepository.findWithLockById(id)).thenReturn(Optional.of(sold));
+        assertThat(productService.releaseExpiredReservations()).isZero();
+        org.mockito.Mockito.verify(productRepository, org.mockito.Mockito.never()).save(any());
+        org.mockito.Mockito.verify(productReservationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void salesCannotReserveProductOutsideAssignedProject() {
+        when(projectAssignmentService.isAssignedToProject(any(), any())).thenReturn(false);
+        UUID id = UUID.randomUUID();
+        Product product = new Product();
+        product.setId(id);
+        product.setProjectId(UUID.randomUUID());
+        when(productRepository.findWithLockById(id)).thenReturn(Optional.of(product));
+        assertThatThrownBy(() -> productService.lock(id,
+                new com.estatecrm.crm_service.dto.LockProductRequest(UUID.randomUUID(), 2, null, BigDecimal.ZERO, null),
+                UUID.randomUUID(), "SALES"))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("not assigned to");
+        org.mockito.Mockito.verifyNoInteractions(productReservationRepository);
+    }
 
     @BeforeEach
     void setUp() {
@@ -63,7 +116,8 @@ class ProductServiceTests {
                 contactDetailRepository,
                 imageStorageService,
                 projectAssignmentService,
-                productReservationRepository);
+                productReservationRepository, dealRepository);
+        org.mockito.Mockito.lenient().when(projectAssignmentService.isAssignedToProject(any(), any())).thenReturn(true);
     }
 
     @Test
@@ -151,7 +205,7 @@ class ProductServiceTests {
         product.setId(productId);
         product.setProjectId(projectId);
 
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(productId)).thenReturn(Optional.of(product));
         when(projectAssignmentService.isAssignedToProject(managerId, projectId)).thenReturn(false);
 
         UpdateProductRequest req = new UpdateProductRequest(
@@ -185,7 +239,7 @@ class ProductServiceTests {
         product.setType(ProductType.APARTMENT);
         product.setStatus(ProductStatus.AVAILABLE);
 
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(productId)).thenReturn(Optional.of(product));
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         com.estatecrm.crm_service.dto.LockProductRequest req = new com.estatecrm.crm_service.dto.LockProductRequest(
@@ -208,7 +262,7 @@ class ProductServiceTests {
         product.setId(productId);
         product.setStatus(ProductStatus.SOLD);
 
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(productId)).thenReturn(Optional.of(product));
 
         com.estatecrm.crm_service.dto.LockProductRequest req = new com.estatecrm.crm_service.dto.LockProductRequest(
                 UUID.randomUUID(), 2, null, BigDecimal.ZERO, null);
@@ -233,7 +287,7 @@ class ProductServiceTests {
         product.setLockedBy(salesId);
         product.setLockExpiresAt(java.time.LocalDate.now().plusDays(2));
 
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(productId)).thenReturn(Optional.of(product));
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductResponse res = productService.unlock(productId, salesId, "SALES");
@@ -255,7 +309,7 @@ class ProductServiceTests {
         product.setStatus(ProductStatus.RESERVED);
         product.setLockedBy(salesId1);
 
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findWithLockById(productId)).thenReturn(Optional.of(product));
 
         assertThatThrownBy(() -> productService.unlock(productId, salesId2, "SALES"))
                 .isInstanceOf(ResponseStatusException.class)

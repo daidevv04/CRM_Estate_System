@@ -25,6 +25,59 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class DealPaymentScheduleServiceTests {
 
+    @Test
+    void bankTemplatePreservesActualDepositAboveFifteenPercent() {
+        deal.setDepositAmount(new BigDecimal("600000000"));
+        when(dealService.requireAccess(dealId, actorId, "SALES")).thenReturn(deal);
+        when(paymentRepository.totalPaidByDealId(dealId)).thenReturn(BigDecimal.ZERO);
+        List<DealPaymentSchedule> saved = new ArrayList<>();
+        when(scheduleRepository.saveAll(any())).thenAnswer(inv -> {
+            saved.addAll(inv.getArgument(0));
+            return saved;
+        });
+        when(scheduleRepository.findByDealIdOrderByInstallmentNoAsc(dealId)).thenReturn(saved);
+        List<DealPaymentScheduleResponse> result = service.applyTemplate(dealId, "TEMPLATE_BANK_LOAN_4", actorId, "SALES");
+        assertThat(result.get(0).amountDue()).isEqualByComparingTo("600000000");
+        assertThat(result.get(1).amountDue()).isEqualByComparingTo("300000000");
+    }
+
+    @Test
+    void constructionRejectsExcessDepositWithoutReplacingExistingSchedule() {
+        deal.setDepositAmount(new BigDecimal("600000000"));
+        when(dealService.requireAccess(dealId, actorId, "SALES")).thenReturn(deal);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.applyTemplate(
+                dealId, "TEMPLATE_CONSTRUCTION_7", actorId, "SALES"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("tiến độ tùy chỉnh");
+        org.mockito.Mockito.verifyNoInteractions(scheduleRepository, paymentRepository);
+    }
+
+    @Test
+    void unknownTemplateDoesNotDeleteExistingSchedule() {
+        when(dealService.requireAccess(dealId, actorId, "SALES")).thenReturn(deal);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.applyTemplate(dealId, "TYPO", actorId, "SALES"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        org.mockito.Mockito.verifyNoInteractions(scheduleRepository, paymentRepository);
+    }
+
+    @Test
+    void missingDepositDoesNotInventReceiptOrDeposit() {
+        deal.setDepositAmount(null);
+        when(dealService.requireAccess(dealId, actorId, "SALES")).thenReturn(deal);
+        when(paymentRepository.totalPaidByDealId(dealId)).thenReturn(BigDecimal.ZERO);
+        List<DealPaymentSchedule> saved = new ArrayList<>();
+        when(scheduleRepository.saveAll(any())).thenAnswer(inv -> {
+            saved.addAll(inv.getArgument(0));
+            return saved;
+        });
+        when(scheduleRepository.findByDealIdOrderByInstallmentNoAsc(dealId)).thenReturn(saved);
+        var result = service.applyTemplate(dealId, "TEMPLATE_FAST_DISCOUNT_3", actorId, "SALES");
+        assertThat(result.get(0).amountDue()).isEqualByComparingTo("0");
+        assertThat(result.stream().map(DealPaymentScheduleResponse::amountDue).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo(deal.getContractValue());
+        org.mockito.Mockito.verify(paymentRepository, org.mockito.Mockito.never()).save(any());
+    }
+
     @Mock
     private DealPaymentScheduleRepository scheduleRepository;
 

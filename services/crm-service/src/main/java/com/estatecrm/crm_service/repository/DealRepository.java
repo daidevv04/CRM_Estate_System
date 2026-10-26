@@ -24,6 +24,14 @@ public interface DealRepository extends JpaRepository<Deal, UUID>, JpaSpecificat
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Deal> findWithLockById(UUID dealId);
 
+    @org.springframework.data.jpa.repository.Query("""
+            select (count(d) > 0) from Deal d
+            where (:excludedDealId is null or d.id <> :excludedDealId)
+              and d.approvalStatus = 'APPROVED' and d.status <> 'CANCELLED'
+              and d.leadId in (select l.id from Lead l where l.productId = :productId)
+            """)
+    boolean hasOtherApprovedDeal(UUID productId, UUID excludedDealId);
+
     static Specification<Deal> filter(
             UUID leadId,
             UUID salesId,

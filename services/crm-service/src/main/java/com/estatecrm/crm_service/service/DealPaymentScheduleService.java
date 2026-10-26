@@ -76,20 +76,23 @@ public class DealPaymentScheduleService {
     public List<DealPaymentScheduleResponse> applyTemplate(
             UUID dealId, String templateCode, UUID actorId, String role) {
         Deal deal = dealService.requireAccess(dealId, actorId, role);
+        if (!TEMPLATE_CONSTRUCTION_7.equalsIgnoreCase(templateCode)
+                && !TEMPLATE_BANK_LOAN_4.equalsIgnoreCase(templateCode)
+                && !TEMPLATE_FAST_DISCOUNT_3.equalsIgnoreCase(templateCode)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã mẫu tiến độ không hợp lệ");
+        }
         BigDecimal contractValue = deal.getContractValue() != null ? deal.getContractValue() : BigDecimal.ZERO;
         if (contractValue.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá trị hợp đồng phải lớn hơn 0 để tạo tiến độ");
         }
 
         LocalDate baseDate = deal.getSignedDate() != null ? deal.getSignedDate() : LocalDate.now();
-        BigDecimal deposit = deal.getDepositAmount() != null && deal.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                ? deal.getDepositAmount()
-                : new BigDecimal("100000000"); // Mặc định 100tr nếu chưa có cọc
-
-        // Tránh tiền cọc lớn hơn 15% khi chia đợt 2
-        BigDecimal maxDeposit = contractValue.multiply(new BigDecimal("0.15"));
-        if (deposit.compareTo(maxDeposit) > 0) {
-            deposit = maxDeposit;
+        BigDecimal deposit = deal.getDepositAmount() != null ? deal.getDepositAmount() : BigDecimal.ZERO;
+        BigDecimal maxRatio = TEMPLATE_FAST_DISCOUNT_3.equalsIgnoreCase(templateCode) ? new BigDecimal("0.95")
+                : TEMPLATE_BANK_LOAN_4.equalsIgnoreCase(templateCode) ? new BigDecimal("0.30") : new BigDecimal("0.15");
+        if (deposit.signum() < 0 || deposit.compareTo(contractValue.multiply(maxRatio)) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tiền cọc vượt giới hạn của mẫu này. Vui lòng sử dụng tiến độ tùy chỉnh.");
         }
 
         List<DealPaymentSchedule> items = new ArrayList<>();
@@ -97,18 +100,18 @@ public class DealPaymentScheduleService {
         if (TEMPLATE_FAST_DISCOUNT_3.equalsIgnoreCase(templateCode)) {
             // Mẫu nhanh 95%: Đợt 1 Cọc -> Đợt 2: 95% trừ cọc (+15 ngày) -> Đợt 3: 5% Sổ hồng (+180 ngày)
             BigDecimal dot1 = deposit;
-            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.05")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.05")).setScale(2, RoundingMode.HALF_UP);
             BigDecimal dot2 = contractValue.subtract(dot1).subtract(dot3);
 
-            items.add(createSchedule(dealId, 1, "Đợt 1: Đặt cọc giữ chỗ căn hộ", calcPct(dot1, contractValue), dot1, baseDate, "Đã nộp cọc giữ chỗ"));
+            items.add(createSchedule(dealId, 1, "Đợt 1: Đặt cọc giữ chỗ căn hộ", calcPct(dot1, contractValue), dot1, baseDate, "Tiền cọc theo hợp đồng; số đã thu được tính từ khoản thanh toán"));
             items.add(createSchedule(dealId, 2, "Đợt 2: Ký HĐMB & Thanh toán 95% (Chiết khấu)", calcPct(dot2, contractValue), dot2, baseDate.plusDays(15), "Thanh toán sớm nhận chiết khấu mở bán"));
             items.add(createSchedule(dealId, 3, "Đợt 3: Nhận Giấy chứng nhận quyền sở hữu (Sổ hồng)", new BigDecimal("5.00"), dot3, baseDate.plusDays(180), "Bàn giao sổ hồng căn hộ"));
 
         } else if (TEMPLATE_BANK_LOAN_4.equalsIgnoreCase(templateCode)) {
             // Mẫu vay ngân hàng: Đợt 1 Cọc -> Đợt 2 Vốn tự có 30% -> Đợt 3 Ngân hàng giải ngân 65% -> Đợt 4 Sổ hồng 5%
             BigDecimal dot1 = deposit;
-            BigDecimal dot2 = contractValue.multiply(new BigDecimal("0.30")).subtract(dot1).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.65")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal dot2 = contractValue.multiply(new BigDecimal("0.30")).subtract(dot1).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.65")).setScale(2, RoundingMode.HALF_UP);
             BigDecimal dot4 = contractValue.subtract(dot1).subtract(dot2).subtract(dot3);
 
             items.add(createSchedule(dealId, 1, "Đợt 1: Đặt cọc giữ chỗ căn hộ", calcPct(dot1, contractValue), dot1, baseDate, "Tiền cọc giữ chỗ"));
@@ -119,11 +122,11 @@ public class DealPaymentScheduleService {
         } else {
             // Mặc định: TEMPLATE_CONSTRUCTION_7 (Tiến độ xây dựng chuẩn 7 đợt)
             BigDecimal dot1 = deposit;
-            BigDecimal dot2 = contractValue.multiply(new BigDecimal("0.15")).subtract(dot1).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal dot4 = contractValue.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal dot5 = contractValue.multiply(new BigDecimal("0.15")).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal dot6 = contractValue.multiply(new BigDecimal("0.45")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal dot2 = contractValue.multiply(new BigDecimal("0.15")).subtract(dot1).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal dot3 = contractValue.multiply(new BigDecimal("0.10")).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal dot4 = contractValue.multiply(new BigDecimal("0.10")).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal dot5 = contractValue.multiply(new BigDecimal("0.15")).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal dot6 = contractValue.multiply(new BigDecimal("0.45")).setScale(2, RoundingMode.HALF_UP);
             BigDecimal dot7 = contractValue.subtract(dot1).subtract(dot2).subtract(dot3).subtract(dot4).subtract(dot5).subtract(dot6);
 
             items.add(createSchedule(dealId, 1, "Đợt 1: Đặt cọc giữ chỗ căn hộ", calcPct(dot1, contractValue), dot1, baseDate, "Tiền cọc giữ chỗ căn"));
@@ -135,7 +138,11 @@ public class DealPaymentScheduleService {
             items.add(createSchedule(dealId, 7, "Đợt 7: Nhận Giấy chứng nhận quyền sở hữu (5%)", calcPct(dot7, contractValue), dot7, baseDate.plusDays(360), "Bàn giao sổ hồng"));
         }
 
+        if (items.stream().anyMatch(item -> item.getAmountDue().signum() < 0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể chia tiến độ với số tiền hiện tại");
+        }
         scheduleRepository.deleteByDealId(dealId);
+        scheduleRepository.flush();
         scheduleRepository.saveAll(items);
         return getSchedules(dealId, actorId, role);
     }

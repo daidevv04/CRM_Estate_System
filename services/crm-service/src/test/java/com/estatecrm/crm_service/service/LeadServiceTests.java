@@ -46,6 +46,23 @@ class LeadServiceTests {
     @InjectMocks private LeadService leadService;
 
     @Test
+    void leadWithContractCannotMoveToAnotherCustomer() {
+        UUID leadId = UUID.randomUUID();
+        Lead lead = new Lead();
+        lead.setId(leadId);
+        lead.setAssignedTo(SALES);
+        lead.setCustomerId(UUID.randomUUID());
+        when(leadRepository.findWithLockById(leadId)).thenReturn(Optional.of(lead));
+        when(dealRepository.existsByLeadId(leadId)).thenReturn(true);
+        assertThatThrownBy(() -> leadService.update(leadId,
+                new com.estatecrm.crm_service.dto.UpdateLeadRequest(UUID.randomUUID(), null, null, null, null, null, null, null),
+                SALES, "SALES"))
+                .isInstanceOf(com.estatecrm.crm_service.exception.ConflictException.class)
+                .hasMessageContaining("Cannot change customer");
+        org.mockito.Mockito.verify(leadRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
     void managerWithNoAssignedProjectsGetsEmptyLeadList() {
         UUID managerId = UUID.randomUUID();
         when(projectAssignmentService.getAssignedProjectIds(managerId)).thenReturn(List.of());

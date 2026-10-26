@@ -17,6 +17,9 @@ public interface LeadRepository extends JpaRepository<Lead, UUID>, JpaSpecificat
 
     boolean existsByProductId(UUID productId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<Lead> findWithLockById(UUID leadId);
+
     List<Lead> findByAssignedTo(UUID assignedTo);
 
     List<Lead> findByProductIdIn(java.util.Collection<UUID> productIds);

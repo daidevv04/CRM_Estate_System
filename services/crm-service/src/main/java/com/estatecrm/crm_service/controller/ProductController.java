@@ -65,8 +65,8 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ProductResponse get(@PathVariable UUID productId) {
-        return productService.get(productId);
+    public ProductResponse get(@PathVariable UUID productId, @AuthenticationPrincipal Jwt jwt) {
+        return productService.get(productId, actorId(jwt), role(jwt));
     }
 
     @PatchMapping("/{productId}")

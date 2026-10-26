@@ -35,6 +35,9 @@ public class ApiExceptionHandler {
         if (message.contains("uq_products_project_code")) {
             return "Product code already exists in this project";
         }
+        if (message.contains("uq_product_reservations_active")) {
+            return "Product is already reserved; reload before trying again";
+        }
         if (message.contains("uq_deals_contract_code")) {
             return "Contract code already exists";
         }

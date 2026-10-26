@@ -37,6 +37,10 @@ public class DealPaymentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only ADMIN/MANAGER can record payments");
         }
         Deal deal = dealService.requireAccessForPayment(dealId, actorId, role);
+        if (deal.getStatus() == com.estatecrm.crm_service.enums.DealStatus.CANCELLED
+                || deal.getApprovalStatus() == com.estatecrm.crm_service.enums.ApprovalStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot record payments for a cancelled or rejected contract");
+        }
         BigDecimal paid = paymentRepository.totalPaidByDealId(dealId);
         BigDecimal totalAfterPayment = paid.add(request.amount());
         if (deal.getContractValue() != null && totalAfterPayment.compareTo(deal.getContractValue()) > 0) {
@@ -54,10 +58,7 @@ public class DealPaymentService {
         DealPayment saved = paymentRepository.save(payment);
 
         if (totalAfterPayment.signum() > 0) {
-            deal.setPaymentStatus(deal.getContractValue() != null
-                    && totalAfterPayment.compareTo(deal.getContractValue()) == 0
-                    ? PaymentStatus.PAID
-                    : PaymentStatus.PARTIAL);
+            deal.setPaymentStatus(DealService.paymentStatus(totalAfterPayment, deal.getContractValue()));
             deal.setUpdatedBy(actorId);
         }
 

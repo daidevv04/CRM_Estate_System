@@ -125,7 +125,15 @@ public class LeadService {
     @Transactional
     public LeadResponse update(
             UUID leadId, UpdateLeadRequest request, UUID actorId, String role) {
-        Lead lead = requireAccess(leadId, actorId, role);
+        Lead lead = leadRepository.findWithLockById(leadId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Lead not found"));
+        verifyAccess(lead, actorId, role);
+        if (dealRepository.existsByLeadId(leadId) && (
+                request.customerId() != null && !request.customerId().equals(lead.getCustomerId()) ||
+                request.projectId() != null && !request.projectId().equals(lead.getProjectId()) ||
+                request.productId() != null && !request.productId().equals(lead.getProductId()))) {
+            throw new ConflictException("Cannot change customer, project or product of a lead with a contract");
+        }
         LeadStage previousStage = lead.getStage();
         if (request.customerId() != null) {
             lead.setCustomerId(request.customerId());
@@ -261,6 +269,10 @@ public class LeadService {
     public Lead requireAccess(UUID leadId, UUID actorId, String role) {
         Lead lead = leadRepository.findById(leadId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Lead not found"));
+        return verifyAccess(lead, actorId, role);
+    }
+
+    private Lead verifyAccess(Lead lead, UUID actorId, String role) {
         if (ADMIN.equals(role)) {
             return lead;
         }

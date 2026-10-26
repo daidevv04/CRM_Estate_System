@@ -100,6 +100,17 @@ class DealPaymentServiceTests {
         return deal;
     }
 
+    @Test
+    void cancelledContractCannotReceiveNewPayments() {
+        Deal deal = deal("100");
+        deal.setStatus(com.estatecrm.crm_service.enums.DealStatus.CANCELLED);
+        when(dealService.isPrivileged("MANAGER")).thenReturn(true);
+        when(dealService.requireAccessForPayment(DEAL_ID, ACTOR, "MANAGER")).thenReturn(deal);
+        assertThatThrownBy(() -> paymentService.create(DEAL_ID, request("20"), ACTOR, "MANAGER"))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("cancelled or rejected");
+        org.mockito.Mockito.verifyNoInteractions(paymentRepository, commissionService);
+    }
+
     private CreateDealPaymentRequest request(String amount) {
         return new CreateDealPaymentRequest(
                 new BigDecimal(amount), LocalDateTime.of(2026, 9, 24, 10, 0),
