@@ -55,6 +55,27 @@ class DealCommissionServiceTests {
     }
 
     @Test
+    void legacyApprovedCommissionCanBeReadWithoutChangingStatusOrAmounts() {
+        DealCommission commission = new DealCommission();
+        commission.setId(UUID.randomUUID());
+        commission.setStatus(new org.hibernate.type.descriptor.java.EnumJavaType<>(CommissionStatus.class)
+                .fromName("APPROVED"));
+        commission.setTotalExpected(new BigDecimal("87500000"));
+        commission.setTotalPaid(BigDecimal.ZERO);
+        when(commissionRepository.count()).thenReturn(1L);
+        when(commissionRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(commission));
+
+        Map<String, Object> payload = service.getAllCommissions();
+        var response = ((List<DealCommissionResponse>) payload.get("commissions")).get(0);
+        assertEquals("APPROVED", response.status().name());
+        assertEquals(new BigDecimal("87500000"), response.totalExpected());
+        assertEquals(BigDecimal.ZERO, response.totalPaid());
+        assertTrue(response.milestones().isEmpty());
+        verify(commissionRepository, never()).save(any());
+        verify(milestoneRepository, never()).saveAll(any());
+    }
+
+    @Test
     void testInitCommissionForDeal_createsCommissionAndMilestones() {
         UUID dealId = UUID.randomUUID();
         UUID salesId = UUID.randomUUID();

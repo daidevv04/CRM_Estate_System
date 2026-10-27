@@ -40,6 +40,27 @@ class SalesLeaderboardServiceTests {
     }
 
     @Test
+    void leaderboardIncludesCommissionWithLegacyApprovedStatus() {
+        UUID salesId = UUID.randomUUID();
+        Deal deal = new Deal();
+        deal.setSalesId(salesId);
+        deal.setStatus(DealStatus.ACTIVE);
+        deal.setContractValue(new BigDecimal("3500000000"));
+        DealCommission commission = new DealCommission();
+        commission.setSalesId(salesId);
+        commission.setStatus(new org.hibernate.type.descriptor.java.EnumJavaType<>(
+                com.estatecrm.crm_service.enums.CommissionStatus.class).fromName("APPROVED"));
+        commission.setCommissionAmount(new BigDecimal("87500000"));
+        when(dealRepository.findAll()).thenReturn(List.of(deal));
+        when(commissionRepository.findAll()).thenReturn(List.of(commission));
+
+        var result = leaderboardService.getLeaderboard("ALL", 2026, null, Map.of(salesId, "Sales legacy"));
+        assertEquals(1, result.items().size());
+        assertEquals(new BigDecimal("87500000"), result.items().get(0).totalCommission());
+        assertEquals("APPROVED", commission.getStatus().name());
+    }
+
+    @Test
     @DisplayName("Tổng hợp bảng xếp hạng và tính rank Gold/Silver chuẩn doanh số")
     void getLeaderboard_rankingsAndPacing() {
         UUID sales1 = UUID.randomUUID();
